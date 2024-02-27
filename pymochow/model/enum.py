@@ -60,6 +60,9 @@ class FieldType(Enum):
     STRING = "STRING"
     BINARY = "BINARY"
     UUID = "UUID"
+    TEXT = "TEXT"
+    TEXT_GBK = "TEXT_GBK"
+    TEXT_GB18030 = "TEXT_GB18030"
 
     # vector field type
     FLOAT_VECTOR = "FLOAT_VECTOR"
@@ -127,6 +130,9 @@ class ServerErrCode(Enum):
     INDEX_ALREADY_EXIST = 92
     INDEX_DUPLICATED = 93
     INVALID_INDEX_STATE = 94
+
+    # Row errors
+    PRIMARY_KEY_DUPLICATED = 100
 
 
 @unique
