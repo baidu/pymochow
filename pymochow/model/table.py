@@ -417,6 +417,25 @@ class Table:
         else:
             raise ClientError("not supported index type:%s" % (index["indexType"]))
 
+    def stats(self, config=None):
+        """show table stats"""
+        if not self.conn:
+            raise ClientError('conn is closed')
+        
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        json_body = orjson.dumps(body)
+        
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
+        
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'stats': b''},
+                config=config)
+
 
 class Row:
     """
