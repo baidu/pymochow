@@ -140,6 +140,14 @@ class TestMochow:
         table.upsert(rows=rows)
         time.sleep(1)
 
+    def show_table_stats(self):
+        """show table stats"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+
+        res = table.stats()
+        logger.debug("res: {}".format(res))
+
     def query_data(self):
         """query data"""
         db = self._client.database('book')
@@ -222,6 +230,7 @@ if __name__ == "__main__":
     test_vdb.clear()
     test_vdb.create_db_and_table()
     test_vdb.upsert_data()
+    test_vdb.show_table_stats()
     test_vdb.query_data()
     test_vdb.search_data()
     test_vdb.delete_data()
