@@ -417,6 +417,25 @@ class Table:
         else:
             raise ClientError("not supported index type:%s" % (index["indexType"]))
 
+    def stats(self, config=None):
+        """show table stats"""
+        if not self.conn:
+            raise ClientError('conn is closed')
+        
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        json_body = orjson.dumps(body)
+        
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
+        
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'stats': b''},
+                config=config)
+
 
 class Row:
     """
@@ -435,7 +454,7 @@ class Row:
 class AnnSearch:
     """ann search"""
 
-    def __init__(self, vector_field, vector_floats, params, filter=''):
+    def __init__(self, vector_field, vector_floats, params, filter=None):
         self._vector_field = vector_field
         self._vector_floats = vector_floats
         self._params = params
@@ -448,7 +467,7 @@ class AnnSearch:
             'vectorFloats': self._vector_floats,
             'params': self._params.to_dict()
         }
-        if self._filter != '':
+        if self._filter is not None:
             res['filter'] = self._filter
         return res
 

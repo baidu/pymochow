@@ -36,7 +36,7 @@ def parse_json(http_response, response):
     :return: always true
     :rtype bool
     """
-    body = http_response.text
+    body = http_response.content
     if body:
         body = compat.convert_to_string(body)
         #response.__dict__.update(json.loads(body, object_hook=utils.dict_to_python_object).__dict__)
