@@ -23,6 +23,7 @@ import logging
 from pymochow.http import http_headers
 from pymochow import utils
 from pymochow import compat
+from pymochow.auth.bce_credentials import BceCredentials, AppBuilderCredentials
 
 _logger = logging.getLogger(__name__)
 
@@ -31,6 +32,15 @@ def sign(credentials, http_method, path, headers, params,
     """
     Create the authorization
     """
-    result = b'Bearer account=%s&api_key=%s' % (credentials.account,
-            credentials.api_key)
-    return result
+    headers = {}
+    if isinstance(credentials, BceCredentials):
+        auth = b'Bearer account=%s&api_key=%s' % (credentials.account,
+                credentials.api_key)
+        headers[http_headers.AUTHORIZATION] = auth
+    elif isinstance(credentials, AppBuilderCredentials):
+        auth = b'Bearer account=%s&api_key=%s' % (credentials.account,
+                credentials.api_key)
+        headers[http_headers.AUTHORIZATION] = auth
+        appbuilder_auth = b'Bearer %s' % (credentials.appbuilder_token)
+        headers[http_headers.APPBUILDER_AUTHORIZATION] = appbuilder_auth
+    return headers
