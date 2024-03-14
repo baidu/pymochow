@@ -74,7 +74,8 @@ class Field:
         """to dict"""
         res = {
             "fieldName": self.field_name,
-            "fieldType": self.field_type
+            "fieldType": self.field_type,
+            "notNull": self.not_null
         }
         if self.primary_key:
             res["primaryKey"] = True
@@ -82,8 +83,6 @@ class Field:
             res["partitionKey"] = True
         if self.auto_increment:
             res["autoIncrement"] = True
-        if self.not_null:
-            res["notNull"] = True
         if self.dimension > 0:
             res["dimension"] = self.dimension
         return res
