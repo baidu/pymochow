@@ -155,7 +155,7 @@ class HTTPClient:
         headers[http_headers.USER_AGENT] = user_agent
      
         should_get_new_date = False
-        if http_headers.BCE_DATE not in headers:
+        if http_headers.DATE not in headers:
             should_get_new_date = True
 
         request_endpoint = config.endpoint
@@ -176,15 +176,20 @@ class HTTPClient:
             offset = body.tell()
 
         protocol, host, port = utils.parse_host_port(request_endpoint, config.protocol)
+        
+        if config.uri_prefix is not None:
+            path = utils.append_uri(config.uri_prefix, path)
+        
         url = request_endpoint + path
         
         headers[http_headers.HOST] = host
         if port != config.protocol.default_port:
             headers[http_headers.HOST] += b':' + compat.convert_to_bytes(port)
 
-        headers[http_headers.AUTHORIZATION] = sign_function(
+        sign_headers = sign_function(
             config.credentials, http_method, path, headers, params)
-
+        headers.update(sign_headers)
+        
         encoded_params = utils.get_canonical_querystring(params, False)
         if len(encoded_params) > 0:
             uri = path + b'?' + encoded_params
@@ -198,10 +203,10 @@ class HTTPClient:
             try:
                 # restore the offset of fp body when retrying
                 if should_get_new_date is True:
-                    headers[http_headers.BCE_DATE] = utils.get_canonical_time()
+                    headers[http_headers.DATE] = utils.get_canonical_time()
 
-                headers[http_headers.AUTHORIZATION] = sign_function(
-                    config.credentials, http_method, path, headers, params)
+                _logger.debug('request args:method=%s, uri=%s, headers=%s, patams=%s, body=%s',
+                        http_method, uri, headers, params, body)
 
                 if retries_attempted > 0 and offset is not None:
                     body.seek(offset)
@@ -217,8 +222,6 @@ class HTTPClient:
                             timeout=config.connection_timeout_in_mills)
                 else:
                     raise ClientError(message="Http method {} not supported.".format(http_method))
-                _logger.debug('request args:method=%s, uri=%s, headers=%s, patams=%s, body=%s',
-                        http_method, uri, headers, params, body)
 
                 headers_list = http_response.headers
 

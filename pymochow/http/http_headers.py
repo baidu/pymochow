@@ -18,6 +18,8 @@ This module defines string constants for HTTP headers
 
 AUTHORIZATION = b"Authorization"
 
+APPBUILDER_AUTHORIZATION = b"X-Appbuilder-Authorization"
+
 CACHE_CONTROL = b"Cache-Control"
 
 CONTENT_DISPOSITION = b"Content-Disposition"

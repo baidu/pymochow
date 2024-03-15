@@ -75,7 +75,7 @@ class TestMochow:
         fields.append(Field("author", FieldType.STRING))
         fields.append(Field("page", FieldType.UINT32))
         fields.append(Field("segment", FieldType.STRING))
-        fields.append(Field("vector", FieldType.FLOAT_VECTOR, dimension=3))
+        fields.append(Field("vector", FieldType.FLOAT_VECTOR, not_null=True, dimension=3))
         indexes = []
         indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
             field="vector", metric_type=MetricType.L2, 

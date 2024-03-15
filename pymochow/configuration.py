@@ -37,8 +37,9 @@ class Configuration(object):
                  cname_enabled=False,
                  backup_endpoint=None,
                  proxy_host=None,
-                 proxy_port=None,):
-        """初始化方法，用于创建 OSS Client 实例。
+                 proxy_port=None,
+                 uri_prefix=None):
+        """初始化方法，用于创建 Client 实例。
         
         Args:
             credentials (dict): 包含 AccessKeyID 和 SecretAccessKey 的字典。
@@ -48,14 +49,12 @@ class Configuration(object):
             send_buf_size (int): 发送缓冲区大小，单位字节（默认值：256KB）。
             recv_buf_size (int): 接收缓冲区大小，单位字节（默认值：1MB）。
             retry_policy (:class:`alibabacloud.ossutil.client.BackOffRetryPolicy`): 重试策略对象，用于设置失败请求的重试次数和重试间隔时间。
-            security_token (str): SecurityToken ，阿里云身份验证安全令牌。
             cname_enabled (bool): 是否启用 CNAME 访问模式（默认值：False）。
-            backup_endpoint (str): 备用 OSS 服务端点 URL。
+            backup_endpoint (str): 备用服务端点 URL。
             proxy_host (str): http/https 代理主机地址。
             proxy_port (int): http/https 代理端口号。
+            uri_prefix(str): appbuilder的gateway的uri前缀
         
-        Returns:
-            :class:`alibabacloud.ossutil.client.Client`
         """
         self.credentials = credentials
         self.endpoint = compat.convert_to_bytes(endpoint) if endpoint is not None else endpoint
@@ -69,10 +68,10 @@ class Configuration(object):
             self.retry_policy = BackOffRetryPolicy()
         else:
             self.retry_policy = retry_policy
-        self.security_token = security_token
         self.cname_enabled = cname_enabled
         self.backup_endpoint = compat.convert_to_bytes(backup_endpoint) \
                 if backup_endpoint is not None else backup_endpoint
+        self.uri_prefix = uri_prefix
 
     def merge_non_none_values(self, other):
         """
