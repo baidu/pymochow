@@ -288,7 +288,29 @@ class Table:
                 body=json_body,
                 params={b'delete': b''},
                 config=config)
-    
+
+    def add_fields(self, schema, config=None):
+        """
+        add_fields
+        """
+        if not self.conn:
+            raise ClientError('conn is closed')
+        
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["schema"] = schema.to_dict()
+        json_body = orjson.dumps(body)
+        
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
+
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'addField': b''},
+                config=config)
+
     def create_indexes(self, indexes, config=None):
         """
         create indexes
