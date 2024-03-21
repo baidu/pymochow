@@ -475,7 +475,7 @@ class AnnSearch:
 class HNSWSearchParams:
     "hnsw search params"
 
-    def __init__(self, ef=0, distance_far=None, distance_near=None, limit=50, 
+    def __init__(self, ef=None, distance_far=None, distance_near=None, limit=50, 
             pruning=True):
         self._ef = ef
         self._distance_far = distance_far
@@ -486,7 +486,7 @@ class HNSWSearchParams:
     def to_dict(self):
         """to dict"""
         res = {}
-        if self._ef > 0:
+        if self._ef is not None:
             res['ef'] = self._ef
         if self._distance_far is not None:
             res['distanceFar'] = self._distance_far
@@ -494,4 +494,22 @@ class HNSWSearchParams:
             res['distanceNear'] = self._distance_near
         res['limit'] = self._limit
         res['pruning'] = self._pruning
+        return res
+
+class FLATSearchParams:
+    "flat search params"
+
+    def __init__(self, distance_far=None, distance_near=None, limit=50):
+        self._distance_far = distance_far
+        self._distance_near = distance_near
+        self._limit = limit
+
+    def to_dict(self):
+        """to dict"""
+        res = {}
+        if self._distance_far is not None:
+            res['distanceFar'] = self._distance_far
+        if self._distance_near is not None:
+            res['distanceNear'] = self._distance_near
+        res['limit'] = self._limit
         return res
