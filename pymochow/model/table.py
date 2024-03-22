@@ -288,7 +288,29 @@ class Table:
                 body=json_body,
                 params={b'delete': b''},
                 config=config)
-    
+
+    def add_fields(self, schema, config=None):
+        """
+        add_fields
+        """
+        if not self.conn:
+            raise ClientError('conn is closed')
+        
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["schema"] = schema.to_dict()
+        json_body = orjson.dumps(body)
+        
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
+
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'addField': b''},
+                config=config)
+
     def create_indexes(self, indexes, config=None):
         """
         create indexes
@@ -475,7 +497,7 @@ class AnnSearch:
 class HNSWSearchParams:
     "hnsw search params"
 
-    def __init__(self, ef=0, distance_far=None, distance_near=None, limit=50, 
+    def __init__(self, ef=None, distance_far=None, distance_near=None, limit=50, 
             pruning=True):
         self._ef = ef
         self._distance_far = distance_far
@@ -486,7 +508,7 @@ class HNSWSearchParams:
     def to_dict(self):
         """to dict"""
         res = {}
-        if self._ef > 0:
+        if self._ef is not None:
             res['ef'] = self._ef
         if self._distance_far is not None:
             res['distanceFar'] = self._distance_far
@@ -494,4 +516,22 @@ class HNSWSearchParams:
             res['distanceNear'] = self._distance_near
         res['limit'] = self._limit
         res['pruning'] = self._pruning
+        return res
+
+class FLATSearchParams:
+    "flat search params"
+
+    def __init__(self, distance_far=None, distance_near=None, limit=50):
+        self._distance_far = distance_far
+        self._distance_near = distance_near
+        self._limit = limit
+
+    def to_dict(self):
+        """to dict"""
+        res = {}
+        if self._distance_far is not None:
+            res['distanceFar'] = self._distance_far
+        if self._distance_near is not None:
+            res['distanceNear'] = self._distance_near
+        res['limit'] = self._limit
         return res
