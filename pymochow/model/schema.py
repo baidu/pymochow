@@ -213,9 +213,9 @@ class SecondaryIndex(IndexField):
 class Schema:
     """schema"""
 
-    def __init__(self, fields, indexes):
-        self._indexes = indexes
+    def __init__(self, fields, indexes=None):
         self._fields = fields
+        self._indexes = indexes
 
     @property
     def indexes(self):
@@ -234,7 +234,8 @@ class Schema:
         for field in self.fields:
             res["fields"].append(field.to_dict())
         
-        res["indexes"] = []
-        for index in self.indexes:
-            res["indexes"].append(index.to_dict())
+        if self.indexes is not None:
+            res["indexes"] = []
+            for index in self.indexes:
+                res["indexes"].append(index.to_dict())
         return res

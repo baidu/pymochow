@@ -140,6 +140,17 @@ class TestMochow:
         table.upsert(rows=rows)
         time.sleep(1)
 
+    def change_table_schema(self):
+        """change table schema"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+        fields = []
+        fields.append(Field("publisher", FieldType.STRING))
+        fields.append(Field("synopsis", FieldType.STRING))
+        
+        res = table.add_fields(schema=Schema(fields=fields))
+        logger.debug("res: {}".format(res))
+    
     def show_table_stats(self):
         """show table stats"""
         db = self._client.database('book')
@@ -230,6 +241,7 @@ if __name__ == "__main__":
     test_vdb.clear()
     test_vdb.create_db_and_table()
     test_vdb.upsert_data()
+    test_vdb.change_table_schema()
     test_vdb.show_table_stats()
     test_vdb.query_data()
     test_vdb.search_data()
