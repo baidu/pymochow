@@ -265,19 +265,29 @@ class Table:
                 params={b'search': b''},
                 config=config)
     
-    def delete(self, primary_key, partition_key=None, config=None):
+    def delete(self, primary_key=None, partition_key=None, filter=None, config=None):
         """
         delete row
         """
         if not self.conn:
             raise ClientError('conn is closed')
+
+        if primary_key is None and filter is None:
+            raise ValueError('requiring primary_key or filter')
+        if primary_key is not None and filter is not None:
+            raise ValueError('only one of primary_key and filter should exist')
+        if partition_key is not None and filter is not None:
+            raise ValueError('only one of partition_key and filter should exist')
         
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
-        body["primaryKey"] = primary_key
+        if primary_key is not None:
+            body["primaryKey"] = primary_key
         if partition_key is not None:
             body["partitionKey"] = partition_key
+        if filter is not None:
+            body["filter"] = filter
         json_body = orjson.dumps(body)
         
         config = self._merge_config(config)
