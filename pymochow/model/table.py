@@ -21,6 +21,7 @@ from pymochow.http import http_methods
 from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams
 from pymochow.model.enum import PartitionType, ReadConsistency
 from pymochow.model.enum import IndexType, IndexState, MetricType
+from pymochow.exception import ClientError
 
 
 class Partition:
