@@ -18,7 +18,7 @@ import orjson
 from pymochow import utils
 from pymochow import client
 from pymochow.http import http_methods
-from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams
+from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams, PUCKParams
 from pymochow.model.enum import PartitionType, ReadConsistency
 from pymochow.model.enum import IndexType, IndexState, MetricType
 from pymochow.exception import ClientError
@@ -443,6 +443,16 @@ class Table:
                 metric_type=getattr(MetricType, index["metricType"], None),
                 auto_build=index["autoBuild"],
                 state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.PUCK.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.PUCK,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"], 
+                        fineClusterCount=index["params"]["fineClusterCount"]),
+                auto_build=index["autoBuild"],
+                state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
             return SecondaryIndex(
                 index_name=index["indexName"],
@@ -529,20 +539,18 @@ class HNSWSearchParams:
         res['pruning'] = self._pruning
         return res
 
-class FLATSearchParams:
-    "flat search params"
+class PUCKSearchParams:
+    "puck search params"
 
-    def __init__(self, distance_far=None, distance_near=None, limit=50):
-        self._distance_far = distance_far
-        self._distance_near = distance_near
+    def __init__(self, searchCoarseCount, limit=50) -> None:
         self._limit = limit
-
+        self._searchCoarseCount = searchCoarseCount
+    
     def to_dict(self):
         """to dict"""
         res = {}
-        if self._distance_far is not None:
-            res['distanceFar'] = self._distance_far
-        if self._distance_near is not None:
-            res['distanceNear'] = self._distance_near
+        
+        res['searchCoarseCount'] = self._searchCoarseCount
         res['limit'] = self._limit
+
         return res

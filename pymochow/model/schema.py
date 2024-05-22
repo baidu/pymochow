@@ -130,6 +130,24 @@ class HNSWParams:
         return res
 
 
+class PUCKParams:
+    """
+    The puck vector index params.
+    """
+
+    def __init__(self, coarseClusterCount: int, fineClusterCount: int) -> None:
+        self.coarseClusterCount = coarseClusterCount
+        self.fineClusterCount = fineClusterCount
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "coarseClusterCount": self.coarseClusterCount,
+            "fineClusterCount": self.fineClusterCount
+        }
+        return res
+    
+
 class VectorIndex(IndexField):
     """
     Args:

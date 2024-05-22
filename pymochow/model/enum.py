@@ -32,6 +32,7 @@ class IndexType(Enum):
     # vector index type
     HNSW = "HNSW"
     FLAT = "FLAT"
+    PUCK = "PUCK"
     
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
