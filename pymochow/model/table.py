@@ -554,3 +554,20 @@ class PUCKSearchParams:
         res['limit'] = self._limit
 
         return res
+class FLATSearchParams:
+    "flat search params"
+
+    def __init__(self, distance_far=None, distance_near=None, limit=50):
+        self._distance_far = distance_far
+        self._distance_near = distance_near
+        self._limit = limit
+
+    def to_dict(self):
+        """to dict"""
+        res = {}
+        if self._distance_far is not None:
+            res['distanceFar'] = self._distance_far
+        if self._distance_near is not None:
+            res['distanceNear'] = self._distance_near
+        res['limit'] = self._limit
+        return res
