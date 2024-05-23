@@ -23,10 +23,10 @@ import logging
 from pymochow.configuration import Configuration
 from pymochow.auth.bce_credentials import BceCredentials
 from pymochow.exception import ClientError, ServerError
-from pymochow.model.schema import Schema, Field, SecondaryIndex, VectorIndex, HNSWParams, AutoBuildTiming
+from pymochow.model.schema import Schema, Field, SecondaryIndex, VectorIndex, HNSWParams, PUCKParams, AutoBuildTiming
 from pymochow.model.enum import FieldType, IndexType, MetricType, ServerErrCode
 from pymochow.model.enum import TableState, IndexState
-from pymochow.model.table import Partition, Row, AnnSearch, HNSWSearchParams
+from pymochow.model.table import Partition, Row, AnnSearch, HNSWSearchParams, PUCKSearchParams
 
 
 logging.basicConfig(filename='example.log', level=logging.DEBUG,
@@ -34,11 +34,12 @@ logging.basicConfig(filename='example.log', level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 class TestMochow:
-    def __init__(self, config):
+    def __init__(self, config, index_type):
         """
         init mochow client
         """
         self._client = pymochow.MochowClient(config)
+        self._index_type = index_type
     
     def clear(self):
         db = None
@@ -76,17 +77,26 @@ class TestMochow:
         fields.append(Field("author", FieldType.STRING))
         fields.append(Field("page", FieldType.UINT32))
         fields.append(Field("segment", FieldType.STRING))
-        fields.append(Field("vector", FieldType.FLOAT_VECTOR, not_null=True, dimension=3))
+        fields.append(Field("vector", FieldType.FLOAT_VECTOR, not_null=True, dimension=4))
         indexes = []
-        indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
+
+        if self._index_type == IndexType.HNSW:
+            indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
             field="vector", metric_type=MetricType.L2, 
             params=HNSWParams(m=32, efconstruction=200)))
+        elif self._index_type == IndexType.PUCK:
+            indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
+            field="vector", metric_type=MetricType.L2, 
+            params=PUCKParams(coarseClusterCount=5, fineClusterCount=5)))
+        else:
+            raise Exception("not support index type")
+        
         indexes.append(SecondaryIndex(index_name="book_name_idx", field="bookName"))
 
         db.create_table(
             table_name=table_name,
             replication=3,
-            partition=Partition(partition_num=3),
+            partition=Partition(partition_num=1),
             schema=Schema(fields=fields, indexes=indexes)
         )
 
@@ -106,40 +116,52 @@ class TestMochow:
 
         rows = [
             Row(id='0001',
-                vector=[0.2123, 0.21, 0.213],
+                vector=[1, 0.21, 0.213, 0],
                 bookName='西游记',
                 author='吴承恩',
                 page=21,
                 segment='富贵功名，前缘分定，为人切莫欺心。'),
             Row(id='0002',
-                vector=[0.2123, 0.22, 0.213],
+                vector=[2, 0.22, 0.213, 0],
                 bookName='西游记',
                 author='吴承恩',
                 page=22,
                 segment='正大光明，忠良善果弥深。些些狂妄天加谴，眼前不遇待时临。'),
             Row(id='0003',
-                vector=[0.2123, 0.23, 0.213],
+                vector=[3, 0.23, 0.213, 0],
                 bookName='三国演义',
                 author='罗贯中',
                 page=23,
                 segment='细作探知这个消息，飞报吕布。'),
             Row(id='0004',
-                vector=[0.2123, 0.24, 0.213],
+                vector=[4, 0.24, 0.213, 0],
                 bookName='三国演义',
                 author='罗贯中',
                 page=24,
                 segment='布大惊，与陈宫商议。宫曰：“闻刘玄德新领徐州，可往投之。”' \
                         '布从其言，竟投徐州来。有人报知玄德。'),
             Row(id='0005',
-                vector=[0.2123, 0.25, 0.213],
+                vector=[5, 0.25, 0.213, 0],
                 bookName='三国演义',
                 author='罗贯中',
                 page=25,
                 segment='玄德曰：“布乃当今英勇之士，可出迎之。”' \
                 '糜竺曰：“吕布乃虎狼之徒，不可收留；收则伤人矣。'),
         ]
+        
+        i = 6
+        while i <= 100:
+            rows.append(Row(id=str(i),
+                vector=[i, 0.2 + i * 0.01, 0.213, 0],
+                bookName='三国演义',
+                author='罗贯中',
+                page=25,
+                segment='玄德曰：“布乃当今英勇之士，可出迎之。”' \
+                '糜竺曰：“吕布乃虎狼之徒，不可收留；收则伤人矣。'))
+            i += 1
+
         table.upsert(rows=rows)
-        time.sleep(1)
+        time.sleep(10)
 
     def change_table_schema(self):
         """change table schema"""
@@ -182,9 +204,13 @@ class TestMochow:
             index = table.describe_index("vector_idx")
             if index.state == IndexState.NORMAL:
                 break
-
-        anns = AnnSearch(vector_field="vector", vector_floats=[0.3123, 0.43, 0.213],
-            params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
+        
+        if self._index_type == IndexType.HNSW:
+            anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
+                params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
+        elif self._index_type == IndexType.PUCK:
+            anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
+                params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
         res = table.search(anns=anns)
         logger.debug("res: {}".format(res))
 
@@ -212,9 +238,16 @@ class TestMochow:
                     break
         
         indexes = []
-        indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
+        if self._index_type == IndexType.HNSW:
+            indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
             field="vector", metric_type=MetricType.L2, 
             params=HNSWParams(m=16, efconstruction=200), auto_build=False))
+        elif self._index_type == IndexType.PUCK:
+            indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
+            field="vector", metric_type=MetricType.L2, 
+            params=PUCKParams(coarseClusterCount=5, fineClusterCount=5), auto_build=False))
+        else:
+            raise Exception("not support index type")
         table.create_indexes(indexes)
         time.sleep(1)
         table.modify_index(index_name="vector_idx", auto_build=True,
@@ -234,12 +267,12 @@ class TestMochow:
 
 if __name__ == "__main__":
     account = 'root'
-    api_key = 'your api key'
-    endpoint = 'your endpoint' #example:http://127.0.0.1:8511
+    api_key = '*********'
+    endpoint = 'http://*.*.*.*:*' #example:http://127.0.0.1:8511
 
     config = Configuration(credentials=BceCredentials(account, api_key),
             endpoint=endpoint)
-    test_vdb = TestMochow(config)
+    test_vdb = TestMochow(config, IndexType.HNSW)
     test_vdb.clear()
     test_vdb.create_db_and_table()
     test_vdb.upsert_data()

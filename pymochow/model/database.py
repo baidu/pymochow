@@ -22,7 +22,7 @@ from pymochow import utils
 from pymochow import client
 from pymochow.http import http_methods
 from pymochow.model.table import Table, Partition
-from pymochow.model.schema import Schema, Field, VectorIndex, SecondaryIndex, HNSWParams
+from pymochow.model.schema import Schema, Field, VectorIndex, SecondaryIndex, HNSWParams, PUCKParams
 from pymochow.model.enum import IndexType, MetricType, TableState
 
 _logger = logging.getLogger(__name__)
@@ -276,6 +276,15 @@ class Database:
                     index_type=IndexType.FLAT,
                     field=index["field"],
                     metric_type=getattr(MetricType, index["metricType"], None),
+                    auto_build=index["autoBuild"]))
+            elif index["indexType"] == IndexType.PUCK.value:
+                indexes.append(VectorIndex(
+                    index_name=index["indexName"],
+                    index_type=IndexType.PUCK,
+                    field=index["field"],
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"], 
+                        fineClusterCount=index["params"]["fineClusterCount"]),
                     auto_build=index["autoBuild"]))
             elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
                 indexes.append(SecondaryIndex(

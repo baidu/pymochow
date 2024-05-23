@@ -18,7 +18,7 @@ import orjson
 from pymochow import utils
 from pymochow import client
 from pymochow.http import http_methods
-from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams, DefaultAutoBuildPolicy
+from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams, PUCKParams, DefaultAutoBuildPolicy
 from pymochow.model.enum import PartitionType, ReadConsistency
 from pymochow.model.enum import IndexType, IndexState, MetricType, AutoBuildPolicyType
 from pymochow.exception import ClientError
@@ -445,6 +445,16 @@ class Table:
                 metric_type=getattr(MetricType, index["metricType"], None),
                 auto_build=index["autoBuild"],
                 state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.PUCK.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.PUCK,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"], 
+                        fineClusterCount=index["params"]["fineClusterCount"]),
+                auto_build=index["autoBuild"],
+                state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
             return SecondaryIndex(
                 index_name=index["indexName"],
@@ -531,6 +541,21 @@ class HNSWSearchParams:
         res['pruning'] = self._pruning
         return res
 
+class PUCKSearchParams:
+    "puck search params"
+
+    def __init__(self, searchCoarseCount, limit=50) -> None:
+        self._limit = limit
+        self._searchCoarseCount = searchCoarseCount
+    
+    def to_dict(self):
+        """to dict"""
+        res = {}
+        
+        res['searchCoarseCount'] = self._searchCoarseCount
+        res['limit'] = self._limit
+
+        return res
 class FLATSearchParams:
     "flat search params"
 
