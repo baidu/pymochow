@@ -556,6 +556,7 @@ class PUCKSearchParams:
         res['limit'] = self._limit
 
         return res
+
 class FLATSearchParams:
     "flat search params"
 
