@@ -221,6 +221,8 @@ class VectorIndex(IndexField):
         self._auto_build = auto_build
         if self._auto_build:
             self._auto_build_index_policy = auto_build_index_policy
+        else:
+            self._auto_build_index_policy = None
         self._state = kwargs.get('state', None)
 
     @property
