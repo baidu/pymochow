@@ -13,8 +13,56 @@
 """
 This module provide schema.
 """
-from pymochow.model.enum import IndexType
+from pymochow.model.enum import IndexType, AutoBuildPolicyType
 
+class AutoBuildTiming:
+    """
+    AutoBuildTiming
+    """
+    def __init__(self, timing):
+        self._timing = timing
+        self._auto_build_policy_type = AutoBuildPolicyType.TIMING
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "policyType": self._auto_build_policy_type,
+            "timing": self._timing
+        }
+        return res
+
+class AutoBuildPeriodical:
+    """
+    AutoBuildPeriodical
+    """
+    def __init__(self, period_s):
+        self._period_s = period_s
+        self._auto_build_policy_type = AutoBuildPolicyType.PERIODICAL
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "policyType": self._auto_build_policy_type,
+            "periodInSecond": self._period_s
+        }
+        return res
+
+
+class AutoBuildRowCountIncrement:
+    """
+    AutoBuildRowCountIncrement
+    """
+    def __init__(self, row_count_increment):
+        self._row_count_increment = row_count_increment
+        self._auto_build_policy_type = AutoBuildPolicyType.ROW_COUNT_INCREMENT
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "policyType": self._auto_build_policy_type,
+            "rowCountIncrement": self._row_count_increment
+        }
+        return res
+
+DefaultAutoBuildPeriodical = 24 * 3600
+DefaultAutoBuildPolicy = AutoBuildPeriodical(DefaultAutoBuildPeriodical)
 
 class Field:
     """field"""
@@ -164,12 +212,15 @@ class VectorIndex(IndexField):
             field,
             metric_type,
             params=None,
-            auto_build=True,
+            auto_build=False,
+            auto_build_index_policy=DefaultAutoBuildPolicy,
             **kwargs):
         super().__init__(index_name=index_name, index_type=index_type, field=field)
         self._metric_type = metric_type
         self._params = params
         self._auto_build = auto_build
+        if self._auto_build:
+            self._auto_build_index_policy = auto_build_index_policy
         self._state = kwargs.get('state', None)
 
     @property
@@ -191,6 +242,10 @@ class VectorIndex(IndexField):
     def state(self):
         """state"""
         return self._state
+    @property
+    def auto_build_index_policy(self):
+        """state"""
+        return self._auto_build_index_policy
     
     def to_dict(self):
         """to dict"""
@@ -205,6 +260,8 @@ class VectorIndex(IndexField):
             res["params"] = self.params.to_dict()
         if self.state is not None:
             res["state"] = self.state
+        if self.auto_build_index_policy is not None:
+            res["autoBuildPolicy"] = self.auto_build_index_policy.to_dict()
         return res
 
 

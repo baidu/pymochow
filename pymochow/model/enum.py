@@ -162,3 +162,14 @@ class IndexState(Enum):
     """
     BUILDING = "BUILDING"
     NORMAL = "NORMAL"
+
+
+@unique
+class AutoBuildPolicyType(Enum):
+    """
+    Auto Build Policy Type
+    """
+    TIMING = "TIMING"
+    PERIODICAL = "PERIODICAL"
+    ROW_COUNT_INCREMENT = "ROW_COUNT_INCREMENT"
+    #RESOURCE_USAGE = 4

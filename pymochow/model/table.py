@@ -18,9 +18,9 @@ import orjson
 from pymochow import utils
 from pymochow import client
 from pymochow.http import http_methods
-from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams, PUCKParams
+from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams, PUCKParams, DefaultAutoBuildPolicy
 from pymochow.model.enum import PartitionType, ReadConsistency
-from pymochow.model.enum import IndexType, IndexState, MetricType
+from pymochow.model.enum import IndexType, IndexState, MetricType, AutoBuildPolicyType
 from pymochow.exception import ClientError
 
 
@@ -351,7 +351,7 @@ class Table:
                 params={b'create': b''},
                 config=config)
     
-    def modify_index(self, index_name, auto_build, config=None):
+    def modify_index(self, index_name, auto_build, auto_build_index_policy=DefaultAutoBuildPolicy, config=None):
         """
         modify index
         """
@@ -365,6 +365,8 @@ class Table:
             "indexName": index_name,
             "autoBuild": auto_build
         }
+        if auto_build:
+            body["index"]["autoBuildPolicy"] = auto_build_index_policy.to_dict()
         json_body = orjson.dumps(body)
         
         config = self._merge_config(config)
