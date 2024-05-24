@@ -146,7 +146,7 @@ class VectorIndex(IndexField):
             field,
             metric_type,
             params=None,
-            auto_build=True,
+            auto_build=False,
             **kwargs):
         super().__init__(index_name=index_name, index_type=index_type, field=field)
         self._metric_type = metric_type
