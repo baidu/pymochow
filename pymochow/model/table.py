@@ -300,6 +300,36 @@ class Table:
                 params={b'delete': b''},
                 config=config)
 
+    def update(self, primary_key=None, partition_key=None, update_fields=None, config=None):
+        """
+        update row
+        """
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        if primary_key is None and update_fields is None:
+            raise ValueError('requiring primary_key and update_fields')
+
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        if primary_key is not None:
+            body["primaryKey"] = primary_key
+        if partition_key is not None:
+            body["partitionKey"] = partition_key
+        if update_fields is not None:
+            body["update"] = update_fields
+        json_body = orjson.dumps(body)
+
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
+
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'update': b''},
+                config=config)
+
     def add_fields(self, schema, config=None):
         """
         add_fields
