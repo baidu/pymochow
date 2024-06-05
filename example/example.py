@@ -214,6 +214,19 @@ class TestMochow:
         res = table.search(anns=anns)
         logger.debug("res: {}".format(res))
 
+    def update_data(self):
+        """update data"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+
+        primary_key = {'id': '0001'}
+        update_fields = {'bookName': '红楼梦',
+                         'author': '曹雪芹',
+                         'page': 21,
+                         'segment': '满纸荒唐言，一把辛酸泪'}
+        res = table.update(primary_key=primary_key, update_fields=update_fields)
+        logger.debug("res: {}".format(res))
+
     def delete_data(self):
         """delete data"""
         db = self._client.database('book')
@@ -280,6 +293,7 @@ if __name__ == "__main__":
     test_vdb.show_table_stats()
     test_vdb.query_data()
     test_vdb.search_data()
+    test_vdb.update_data()
     test_vdb.delete_data()
     test_vdb.drop_and_create_vindex()
     test_vdb.delete_and_drop()

@@ -134,6 +134,7 @@ class ServerErrCode(Enum):
 
     # Row errors
     PRIMARY_KEY_DUPLICATED = 100
+    ROW_KEY_NOT_FOUND = 101
 
 
 @unique
