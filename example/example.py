@@ -214,6 +214,24 @@ class TestMochow:
         res = table.search(anns=anns)
         logger.debug("res: {}".format(res))
 
+    def select_data(self):
+        """select data"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+        projections = ["id", "bookName"]
+
+        select_finished = False
+        marker = None
+        while True:
+            res = table.select(marker=marker, projections=projections, limit=20)
+            logger.debug("res: {}".format(res))
+            if res.is_truncated is False:
+                logger.debug("select finished")
+                break
+            else:
+                logger.debug("select next batch")
+                marker = res.next_marker
+
     def update_data(self):
         """update data"""
         db = self._client.database('book')
@@ -289,6 +307,7 @@ if __name__ == "__main__":
     test_vdb.clear()
     test_vdb.create_db_and_table()
     test_vdb.upsert_data()
+    test_vdb.select_data()
     test_vdb.change_table_schema()
     test_vdb.show_table_stats()
     test_vdb.query_data()

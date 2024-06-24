@@ -330,6 +330,36 @@ class Table:
                 params={b'update': b''},
                 config=config)
 
+    def select(self, filter=None, marker=None, projections=None, read_consistency=ReadConsistency.EVENTUAL, limit=10,
+            config=None):
+        """
+        select
+        """
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["readConsistency"] = read_consistency
+        body["limit"] = limit
+        if filter is not None:
+            body["filter"] = filter
+        if marker is not None:
+            body["marker"] = marker
+        if projections is not None:
+            body["projections"] = projections
+        json_body = orjson.dumps(body)
+
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
+
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'select': b''},
+                config=config)
+
     def add_fields(self, schema, config=None):
         """
         add_fields
