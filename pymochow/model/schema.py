@@ -213,7 +213,7 @@ class VectorIndex(IndexField):
             metric_type,
             params=None,
             auto_build=False,
-            auto_build_index_policy=DefaultAutoBuildPolicy,
+            auto_build_index_policy=None,
             **kwargs):
         super().__init__(index_name=index_name, index_type=index_type, field=field)
         self._metric_type = metric_type
