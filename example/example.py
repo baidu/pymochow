@@ -23,7 +23,7 @@ import logging
 from pymochow.configuration import Configuration
 from pymochow.auth.bce_credentials import BceCredentials
 from pymochow.exception import ClientError, ServerError
-from pymochow.model.schema import Schema, Field, SecondaryIndex, VectorIndex, HNSWParams, PUCKParams, AutoBuildTiming
+from pymochow.model.schema import Schema, Field, SecondaryIndex, VectorIndex, HNSWParams, PUCKParams, AutoBuildTiming, AutoBuildPeriodical, AutoBuildRowCountIncrement
 from pymochow.model.enum import FieldType, IndexType, MetricType, ServerErrCode
 from pymochow.model.enum import TableState, IndexState
 from pymochow.model.table import Partition, Row, AnnSearch, HNSWSearchParams, PUCKSearchParams
