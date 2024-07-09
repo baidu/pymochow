@@ -9,40 +9,48 @@
 # License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
-
 """
 This module provide schema.
 """
 from pymochow.model.enum import IndexType, AutoBuildPolicyType
 
+
 class AutoBuildTiming:
     """
     AutoBuildTiming
     """
+
     def __init__(self, timing):
         self._timing = timing
         self._auto_build_policy_type = AutoBuildPolicyType.TIMING
+
     def to_dict(self):
         """to dict"""
-        res = {
-            "policyType": self._auto_build_policy_type,
-            "timing": self._timing
-        }
+        res = {"policyType": self._auto_build_policy_type, "timing": self._timing}
         return res
+
 
 class AutoBuildPeriodical:
     """
     AutoBuildPeriodical
     """
-    def __init__(self, period_s):
+
+    def __init__(self, period_s, timing=""):
+        """
+        __init__
+        """
         self._period_s = period_s
         self._auto_build_policy_type = AutoBuildPolicyType.PERIODICAL
+        self._timing = timing
+
     def to_dict(self):
         """to dict"""
         res = {
             "policyType": self._auto_build_policy_type,
-            "periodInSecond": self._period_s
+            "periodInSecond": self._period_s,
         }
+        if self._timing != "":
+            res["timing"] = self._timing
         return res
 
 
@@ -50,16 +58,48 @@ class AutoBuildRowCountIncrement:
     """
     AutoBuildRowCountIncrement
     """
-    def __init__(self, row_count_increment):
+
+    def __init__(self, row_count_increment=0, row_count_increment_ratio=0):
         self._row_count_increment = row_count_increment
+        self._row_count_increment_ratio = row_count_increment_ratio
         self._auto_build_policy_type = AutoBuildPolicyType.ROW_COUNT_INCREMENT
+
     def to_dict(self):
         """to dict"""
         res = {
             "policyType": self._auto_build_policy_type,
-            "rowCountIncrement": self._row_count_increment
         }
+        if self._row_count_increment != 0:
+            res["rowCountIncrement"] = self._row_count_increment
+        if self._row_count_increment_ratio != 0:
+            res["rowCountIncrementRatio"] = self._row_count_increment_ratio
         return res
+
+
+class AutoBuildTool:
+    """
+    AutoBuildTool
+    """
+
+    def get_auto_build_index_policy(auto_build_policy_dict):
+        """get auto build index policy"""
+        if "policyType" not in auto_build_policy_dict:
+            return None
+        if (auto_build_policy_dict["policyType"].upper() == AutoBuildPolicyType.TIMING.name):
+            return AutoBuildTiming(auto_build_policy_dict["timing"])
+        elif (auto_build_policy_dict["policyType"].upper() == AutoBuildPolicyType.PERIODICAL.name):
+            if "timing" in auto_build_policy_dict:
+                return AutoBuildPeriodical(auto_build_policy_dict["periodInSecond"], auto_build_policy_dict["timing"])
+            else:
+                return AutoBuildPeriodical(auto_build_policy_dict["periodInSecond"])
+        elif (auto_build_policy_dict["policyType"].upper() == AutoBuildPolicyType.ROW_COUNT_INCREMENT.name):
+            row_count_increment = 0
+            row_count_increment_ratio = 0.0
+            if "rowCountIncrementRatio" in auto_build_policy_dict:
+                row_count_increment_ratio = auto_build_policy_dict["rowCountIncrementRatio"]
+            if "rowCountIncrement" in auto_build_policy_dict:
+                row_count_increment = auto_build_policy_dict["rowCountIncrement"]
+            return AutoBuildRowCountIncrement(row_count_increment, row_count_increment_ratio)
 
 DefaultAutoBuildPeriodical = 24 * 3600
 DefaultAutoBuildPolicy = AutoBuildPeriodical(DefaultAutoBuildPeriodical)
@@ -67,10 +107,10 @@ DefaultAutoBuildPolicy = AutoBuildPeriodical(DefaultAutoBuildPeriodical)
 class Field:
     """field"""
 
-    def __init__(self, 
-            field_name, 
-            field_type, 
-            primary_key=False, 
+    def __init__(self,
+            field_name,
+            field_type,
+            primary_key=False,
             partition_key=False,
             auto_increment=False,
             not_null=False,
@@ -96,7 +136,7 @@ class Field:
     @property
     def primary_key(self):
         """primary key"""
-        return self._primary_key;
+        return self._primary_key
 
     @property
     def partition_key(self):
@@ -134,7 +174,7 @@ class Field:
         if self.dimension > 0:
             res["dimension"] = self.dimension
         return res
-    
+
 
 class IndexField:
     """index field"""
@@ -153,7 +193,7 @@ class IndexField:
     def index_name(self):
         """index name"""
         return self._index_name
-    
+
     @property
     def field(self):
         """field"""
@@ -168,7 +208,7 @@ class HNSWParams:
     def __init__(self, m: int, efconstruction: int) -> None:
         self.m = m
         self.ef_construction = efconstruction
-    
+
     def to_dict(self):
         """to dict"""
         res = {
@@ -194,7 +234,7 @@ class PUCKParams:
             "fineClusterCount": self.fineClusterCount
         }
         return res
-    
+
 
 class VectorIndex(IndexField):
     """
@@ -239,7 +279,7 @@ class VectorIndex(IndexField):
     def auto_build(self):
         """auto build"""
         return self._auto_build
-    
+
     @property
     def state(self):
         """state"""
@@ -248,7 +288,7 @@ class VectorIndex(IndexField):
     def auto_build_index_policy(self):
         """state"""
         return self._auto_build_index_policy
-    
+
     def to_dict(self):
         """to dict"""
         res = {
@@ -274,7 +314,7 @@ class SecondaryIndex(IndexField):
             self,
             index_name,
             field):
-        super().__init__(index_name=index_name, index_type=IndexType.SECONDARY_INDEX, 
+        super().__init__(index_name=index_name, index_type=IndexType.SECONDARY_INDEX,
                 field=field)
 
     def to_dict(self):
@@ -310,7 +350,7 @@ class Schema:
         res["fields"] = []
         for field in self.fields:
             res["fields"].append(field.to_dict())
-        
+
         if self.indexes is not None:
             res["indexes"] = []
             for index in self.indexes:
