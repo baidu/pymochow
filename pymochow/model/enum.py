@@ -33,7 +33,7 @@ class IndexType(Enum):
     HNSW = "HNSW"
     FLAT = "FLAT"
     PUCK = "PUCK"
-    
+
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
 
@@ -170,6 +170,15 @@ class AutoBuildPolicyType(Enum):
     """
     Auto Build Policy Type
     """
+    def __str__(self):
+        """
+            将对象转换为字符串，返回值为对象的value属性。
+        如果value属性不存在或者是None，则返回空字符串。
+
+        Returns:
+            str -- 对象的value属性，如果不存在或者是None，则返回空字符串。
+        """
+        return str(self.value)
     TIMING = "TIMING"
     PERIODICAL = "PERIODICAL"
     ROW_COUNT_INCREMENT = "ROW_COUNT_INCREMENT"

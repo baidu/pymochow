@@ -18,11 +18,17 @@ import orjson
 from pymochow import utils
 from pymochow import client
 from pymochow.http import http_methods
-from pymochow.model.schema import VectorIndex, SecondaryIndex, HNSWParams, PUCKParams, DefaultAutoBuildPolicy
+from pymochow.model.schema import (
+    VectorIndex,
+    SecondaryIndex,
+    HNSWParams,
+    PUCKParams,
+    DefaultAutoBuildPolicy,
+    AutoBuildTool,
+)
 from pymochow.model.enum import PartitionType, ReadConsistency
 from pymochow.model.enum import IndexType, IndexState, MetricType, AutoBuildPolicyType
 from pymochow.exception import ClientError
-
 
 class Partition:
     """
@@ -31,7 +37,7 @@ class Partition:
     def __init__(self, partition_num, partition_type=PartitionType.HASH):
         self._partition_num = partition_num
         self._partition_type = partition_type
-    
+
     def to_dict(self):
         """to dict"""
         res = {
@@ -39,7 +45,6 @@ class Partition:
             "partitionNum": self._partition_num
         }
         return res
-
 
 class Table:
     """
@@ -73,7 +78,7 @@ class Table:
     def conn(self):
         """http conn"""
         return self._conn
-    
+
     @property
     def database_name(self):
         """database name"""
@@ -88,32 +93,32 @@ class Table:
     def schema(self):
         """schema"""
         return self._schema
-    
+
     @property
     def replication(self):
         """replication"""
         return self._replication
-    
+
     @property
     def partition(self):
         """partition"""
         return self._partition
-    
+
     @property
     def enable_dynamic_field(self):
         """enable dynamic field"""
         return self._enable_dynamic_field
-    
+
     @property
     def description(self):
         """description"""
         return self._description
-    
+
     @property
     def create_time(self):
         """create time"""
         return self._create_time
-    
+
     @property
     def state(self):
         """state"""
@@ -123,7 +128,7 @@ class Table:
     def aliases(self):
         """aliases"""
         return self._aliases
-    
+
     def to_dict(self):
         """to dict"""
         res = {
@@ -141,7 +146,7 @@ class Table:
         if self.state is not None:
             res["state"] = self.state
         return res
-    
+
     def _merge_config(self, config):
         """merge config
         Args:
@@ -171,7 +176,7 @@ class Table:
         for row in rows:
             body['rows'].append(row.to_dict())
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
 
@@ -180,7 +185,7 @@ class Table:
                 body=json_body,
                 params={b'insert': b''},
                 config=config)
-    
+
     def upsert(self, rows, config=None):
         """
         upsert rows
@@ -196,7 +201,7 @@ class Table:
         for row in rows:
             body['rows'].append(row.to_dict())
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
 
@@ -205,16 +210,16 @@ class Table:
                 body=json_body,
                 params={b'upsert': b''},
                 config=config)
-    
-    def query(self, primary_key, partition_key=None, projections=None, 
-            retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL, 
+
+    def query(self, primary_key, partition_key=None, projections=None,
+            retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL,
             config=None):
         """
         query
         """
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
@@ -226,7 +231,7 @@ class Table:
         body["retrieveVector"] = retrieve_vector
         body["readConsistency"] = read_consistency
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
 
@@ -235,9 +240,9 @@ class Table:
                 body=json_body,
                 params={b'query': b''},
                 config=config)
-    
-    def search(self, anns, partition_key=None, projections=None, 
-            retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL, 
+
+    def search(self, anns, partition_key=None, projections=None,
+            retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL,
             config=None):
         """
         search
@@ -256,16 +261,16 @@ class Table:
         body["retrieveVector"] = retrieve_vector
         body["readConsistency"] = read_consistency
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
-        
+
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
                 params={b'search': b''},
                 config=config)
-    
+
     def delete(self, primary_key=None, partition_key=None, filter=None, config=None):
         """
         delete row
@@ -279,7 +284,7 @@ class Table:
             raise ValueError('only one of primary_key and filter should exist')
         if partition_key is not None and filter is not None:
             raise ValueError('only one of partition_key and filter should exist')
-        
+
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
@@ -290,7 +295,7 @@ class Table:
         if filter is not None:
             body["filter"] = filter
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
 
@@ -366,13 +371,13 @@ class Table:
         """
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
         body["schema"] = schema.to_dict()
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
 
@@ -388,7 +393,7 @@ class Table:
         """
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
@@ -399,25 +404,25 @@ class Table:
                 body["indexes"].append(index.to_dict())
             else:
                 raise ClientError("not supported index type")
-        
+
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'index')
-        
+
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
                 params={b'create': b''},
                 config=config)
-    
+
     def modify_index(self, index_name, auto_build, auto_build_index_policy=DefaultAutoBuildPolicy, config=None):
         """
         modify index
         """
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
@@ -428,10 +433,10 @@ class Table:
         if auto_build:
             body["index"]["autoBuildPolicy"] = auto_build_index_policy.to_dict()
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'index')
-        
+
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
@@ -457,10 +462,10 @@ class Table:
         """build vector index"""
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'index')
-        
+
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=orjson.dumps({"database": self.database_name,
@@ -473,10 +478,10 @@ class Table:
         """describe index"""
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'index')
-        
+
         response = self.conn.send_request(http_methods.POST,
                 path=uri,
                 params={b'desc': b''},
@@ -493,9 +498,10 @@ class Table:
                 index_type=IndexType.HNSW,
                 field=index["field"],
                 metric_type=getattr(MetricType, index["metricType"], None),
-                params=HNSWParams(m=index["params"]["M"], 
+                params=HNSWParams(m=index["params"]["M"],
                     efconstruction=index["params"]["efConstruction"]),
                 auto_build=index["autoBuild"],
+                auto_build_index_policy=AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"]),
                 state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.FLAT.value:
             return VectorIndex(
@@ -504,6 +510,7 @@ class Table:
                 field=index["field"],
                 metric_type=getattr(MetricType, index["metricType"], None),
                 auto_build=index["autoBuild"],
+                auto_build_index_policy=AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"]),
                 state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.PUCK.value:
             return VectorIndex(
@@ -511,9 +518,10 @@ class Table:
                 index_type=IndexType.PUCK,
                 field=index["field"],
                 metric_type=getattr(MetricType, index["metricType"], None),
-                params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"], 
+                params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"],
                         fineClusterCount=index["params"]["fineClusterCount"]),
                 auto_build=index["autoBuild"],
+                auto_build_index_policy=AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"]),
                 state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
             return SecondaryIndex(
@@ -522,25 +530,25 @@ class Table:
         else:
             raise ClientError("not supported index type:%s" % (index["indexType"]))
 
+
     def stats(self, config=None):
         """show table stats"""
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         body = {}
         body["database"] = self.database_name
         body["table"] = self.table_name
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
-        
+
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
                 params={b'stats': b''},
                 config=config)
-
 
 class Row:
     """
@@ -580,7 +588,7 @@ class AnnSearch:
 class HNSWSearchParams:
     "hnsw search params"
 
-    def __init__(self, ef=None, distance_far=None, distance_near=None, limit=50, 
+    def __init__(self, ef=None, distance_far=None, distance_near=None, limit=50,
             pruning=True):
         self._ef = ef
         self._distance_far = distance_far
@@ -601,21 +609,23 @@ class HNSWSearchParams:
         res['pruning'] = self._pruning
         return res
 
+
 class PUCKSearchParams:
     "puck search params"
 
     def __init__(self, searchCoarseCount, limit=50) -> None:
         self._limit = limit
         self._searchCoarseCount = searchCoarseCount
-    
+
     def to_dict(self):
         """to dict"""
         res = {}
-        
+
         res['searchCoarseCount'] = self._searchCoarseCount
         res['limit'] = self._limit
 
         return res
+
 
 class FLATSearchParams:
     "flat search params"
