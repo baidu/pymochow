@@ -262,6 +262,9 @@ class Database:
         indexes = []
         for index in table["schema"]["indexes"]:
             if index["indexType"] == IndexType.HNSW.value:
+                auto_build_index_policy = None
+                if "autoBuildPolicy" in index:
+                    auto_build_index_policy = AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
                     index_type=IndexType.HNSW,
@@ -270,7 +273,7 @@ class Database:
                     params=HNSWParams(m=index["params"]["M"],
                         efconstruction=index["params"]["efConstruction"]),
                     auto_build=index["autoBuild"],
-                    auto_build_index_policy=AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])))
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.FLAT.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
@@ -278,7 +281,7 @@ class Database:
                     field=index["field"],
                     metric_type=getattr(MetricType, index["metricType"], None),
                     auto_build=index["autoBuild"],
-                    auto_build_index_policy=AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])))
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.PUCK.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
@@ -288,7 +291,7 @@ class Database:
                     params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"],
                         fineClusterCount=index["params"]["fineClusterCount"]),
                     auto_build=index["autoBuild"],
-                    auto_build_index_policy=AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])))
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
                 indexes.append(SecondaryIndex(
                     index_name=index["indexName"],
