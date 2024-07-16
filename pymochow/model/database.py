@@ -261,10 +261,10 @@ class Database:
 
         indexes = []
         for index in table["schema"]["indexes"]:
+            auto_build_index_policy = None
+            if "autoBuildPolicy" in index:
+                auto_build_index_policy = AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])
             if index["indexType"] == IndexType.HNSW.value:
-                auto_build_index_policy = None
-                if "autoBuildPolicy" in index:
-                    auto_build_index_policy = AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
                     index_type=IndexType.HNSW,
