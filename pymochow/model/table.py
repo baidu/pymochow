@@ -360,6 +360,36 @@ class Table:
                 params={b'select': b''},
                 config=config)
 
+    def batch_search(self, anns, partition_key=None, projections=None, 
+            retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL, 
+            config=None):
+        """
+        batch_search
+        """
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["anns"] = anns.to_dict()
+        if partition_key is not None:
+            body["partitionKey"] = partition_key
+        if projections is not None:
+            body["projections"] = projections
+        body["retrieveVector"] = retrieve_vector
+        body["readConsistency"] = read_consistency
+        json_body = orjson.dumps(body)
+        
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
+        
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'batchSearch': b''},
+                config=config)
+
     def add_fields(self, schema, config=None):
         """
         add_fields

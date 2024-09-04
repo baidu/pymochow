@@ -204,7 +204,8 @@ class TestMochow:
             index = table.describe_index("vector_idx")
             if index.state == IndexState.NORMAL:
                 break
-        
+
+        # single search
         if self._index_type == IndexType.HNSW:
             anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
                 params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
@@ -212,7 +213,17 @@ class TestMochow:
             anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
                 params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
         res = table.search(anns=anns)
-        logger.debug("res: {}".format(res))
+        logger.debug("single search res: {}".format(res))
+
+        # batch search
+        if self._index_type == IndexType.HNSW:
+            anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
+                params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
+        elif self._index_type == IndexType.PUCK:
+            anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
+                params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
+        res = table.batch_search(anns=anns)
+        logger.debug("batch search res: {}".format(res))
 
     def select_data(self):
         """select data"""
