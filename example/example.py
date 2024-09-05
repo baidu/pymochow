@@ -23,11 +23,26 @@ import logging
 from pymochow.configuration import Configuration
 from pymochow.auth.bce_credentials import BceCredentials
 from pymochow.exception import ClientError, ServerError
-from pymochow.model.schema import Schema, Field, SecondaryIndex, VectorIndex, HNSWParams, PUCKParams, AutoBuildTiming, AutoBuildPeriodical, AutoBuildRowCountIncrement
+from pymochow.model.schema import (
+    Schema,
+    Field,
+    SecondaryIndex,
+    VectorIndex,
+    HNSWParams,
+    HNSWPQParams,
+    PUCKParams,
+    AutoBuildTiming
+)
 from pymochow.model.enum import FieldType, IndexType, MetricType, ServerErrCode
 from pymochow.model.enum import TableState, IndexState
-from pymochow.model.table import Partition, Row, AnnSearch, HNSWSearchParams, PUCKSearchParams
-
+from pymochow.model.table import (
+    Partition,
+    Row,
+    AnnSearch,
+    HNSWSearchParams,
+    HNSWPQSearchParams,
+    PUCKSearchParams
+)
 
 logging.basicConfig(filename='example.log', level=logging.DEBUG,
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -82,11 +97,15 @@ class TestMochow:
 
         if self._index_type == IndexType.HNSW:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
-            field="vector", metric_type=MetricType.L2, 
+            field="vector", metric_type=MetricType.L2,
             params=HNSWParams(m=32, efconstruction=200)))
+        elif self._index_type == IndexType.HNSWPQ:
+            indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSWPQ,
+            field="vector", metric_type=MetricType.L2,
+            params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0)))
         elif self._index_type == IndexType.PUCK:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
-            field="vector", metric_type=MetricType.L2, 
+            field="vector", metric_type=MetricType.L2,
             params=PUCKParams(coarseClusterCount=5, fineClusterCount=5)))
         else:
             raise Exception("not support index type")
@@ -170,10 +189,10 @@ class TestMochow:
         fields = []
         fields.append(Field("publisher", FieldType.STRING))
         fields.append(Field("synopsis", FieldType.STRING))
-        
+
         res = table.add_fields(schema=Schema(fields=fields))
         logger.debug("res: {}".format(res))
-    
+
     def show_table_stats(self):
         """show table stats"""
         db = self._client.database('book')
@@ -209,6 +228,9 @@ class TestMochow:
         if self._index_type == IndexType.HNSW:
             anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
                 params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
+        elif self._index_type == IndexType.HNSWPQ:
+            anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
+                params=HNSWPQSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
         elif self._index_type == IndexType.PUCK:
             anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
                 params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
@@ -219,6 +241,9 @@ class TestMochow:
         if self._index_type == IndexType.HNSW:
             anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
                 params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
+        elif self._index_type == IndexType.HNSWPQ:
+            anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
+                params=HNSWPQSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
         elif self._index_type == IndexType.PUCK:
             anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
                 params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
@@ -264,7 +289,7 @@ class TestMochow:
         primary_key = {'id': '0001'}
         res = table.delete(primary_key=primary_key)
         logger.debug("res: {}".format(res))
-    
+
     def drop_and_create_vindex(self):
         """drop and create vindex"""
         db = self._client.database('book')
@@ -282,11 +307,15 @@ class TestMochow:
         indexes = []
         if self._index_type == IndexType.HNSW:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
-            field="vector", metric_type=MetricType.L2, 
+            field="vector", metric_type=MetricType.L2,
             params=HNSWParams(m=16, efconstruction=200), auto_build=False))
+        elif self._index_type == IndexType.HNSWPQ:
+            indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSWPQ,
+            field="vector", metric_type=MetricType.L2,
+            params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0)))
         elif self._index_type == IndexType.PUCK:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
-            field="vector", metric_type=MetricType.L2, 
+            field="vector", metric_type=MetricType.L2,
             params=PUCKParams(coarseClusterCount=5, fineClusterCount=5), auto_build=False))
         else:
             raise Exception("not support index type")
@@ -309,12 +338,12 @@ class TestMochow:
 
 if __name__ == "__main__":
     account = 'root'
-    api_key = '*********'
+    api_key = '********'
     endpoint = 'http://*.*.*.*:*' #example:http://127.0.0.1:8511
 
     config = Configuration(credentials=BceCredentials(account, api_key),
             endpoint=endpoint)
-    test_vdb = TestMochow(config, IndexType.HNSW)
+    test_vdb = TestMochow(config, IndexType.HNSWPQ)
     test_vdb.clear()
     test_vdb.create_db_and_table()
     test_vdb.upsert_data()
