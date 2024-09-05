@@ -218,6 +218,28 @@ class HNSWParams:
         return res
 
 
+class HNSWPQParams:
+    """
+    The hnsw pq vector index params.
+    """
+
+    def __init__(self, m: int, efconstruction: int, NSQ: int, samplerate: float) -> None:
+        self.m = m
+        self.ef_construction = efconstruction
+        self.NSQ = NSQ
+        self.samplerate = samplerate
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "M": self.m,
+            "efConstruction": self.ef_construction,
+            "NSQ": self.NSQ,
+            "sampleRate": self.samplerate
+        }
+        return res
+
+
 class PUCKParams:
     """
     The puck vector index params.
