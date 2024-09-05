@@ -33,6 +33,7 @@ class IndexType(Enum):
     HNSW = "HNSW"
     FLAT = "FLAT"
     PUCK = "PUCK"
+    HNSWPQ = "HNSWPQ"
 
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
@@ -183,3 +184,4 @@ class AutoBuildPolicyType(Enum):
     PERIODICAL = "PERIODICAL"
     ROW_COUNT_INCREMENT = "ROW_COUNT_INCREMENT"
     #RESOURCE_USAGE = 4
+
