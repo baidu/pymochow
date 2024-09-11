@@ -22,7 +22,16 @@ from pymochow import utils
 from pymochow import client
 from pymochow.http import http_methods
 from pymochow.model.table import Table, Partition
-from pymochow.model.schema import Schema, Field, VectorIndex, SecondaryIndex, HNSWParams, PUCKParams
+from pymochow.model.schema import (
+    Schema,
+    Field,
+    VectorIndex,
+    SecondaryIndex,
+    HNSWParams,
+    HNSWPQParams,
+    PUCKParams,
+    AutoBuildTool,
+)
 from pymochow.model.enum import IndexType, MetricType, TableState
 
 _logger = logging.getLogger(__name__)
@@ -45,7 +54,7 @@ class Database:
     def database_name(self):
         """database name"""
         return self._database_name
-    
+
     def _merge_config(self, config):
         """merge config
         Args:
@@ -71,7 +80,7 @@ class Database:
 
         if not self.database_name:
             raise ClientError('database name param not found')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'database')
 
@@ -80,7 +89,7 @@ class Database:
                 body=orjson.dumps({'database': self.database_name}),
                 params={b'create': b''},
                 config=config)
-    
+
     def drop_database(self, config=None):
         """Drop database.
         Args:
@@ -92,14 +101,14 @@ class Database:
 
         if not self.database_name:
             raise ClientError('database name param not found')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'database')
         self.conn.send_request(http_methods.DELETE,
                 path=uri,
                 params={b'database': self.database_name},
                 config=config)
-    
+
     def list_databases(self, config=None) -> List:
         """List databases.
         Args:
@@ -140,7 +149,7 @@ class Database:
 
         if not self.database_name:
             raise ClientError('database name param not found')
-        
+
         if not table_name:
             raise ClientError('table name param not found')
 
@@ -162,7 +171,7 @@ class Database:
 
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
-        
+
         try:
             response = self.conn.send_request(http_methods.POST,
                     path=uri,
@@ -174,11 +183,11 @@ class Database:
             _logger.debug("create table error:%s", e)
             raise e
 
-        return Table(self, table_name, replication, partition, schema, 
+        return Table(self, table_name, replication, partition, schema,
                 enable_dynamic_field=enable_dynamic_field,
                 description=description,
                 config=self._config)
-    
+
     def drop_table(self, table_name, config=None):
         """drop table
         Args:
@@ -190,10 +199,10 @@ class Database:
 
         if not self.database_name:
             raise ClientError('database name param not found')
-        
+
         if not table_name:
             raise ClientError('table name param not found')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
 
@@ -217,13 +226,13 @@ class Database:
 
         if not self.database_name:
             raise ClientError('database name param not found')
-        
+
         if not table_name:
             raise ClientError('table name param not found')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
-        
+
         response = self.conn.send_request(http_methods.POST,
                 path=uri,
                 params={b'desc': b''},
@@ -232,20 +241,20 @@ class Database:
                 config=config)
         table = response.table
         partition = Partition(partition_num=table["partition"]["partitionNum"])
-        
+
         fields = []
         for field in table["schema"]["fields"]:
             fields.append(Field(
-                field_name=field["fieldName"], 
+                field_name=field["fieldName"],
                 field_type=field["fieldType"],
                 primary_key=(
                     field["primaryKey"]
                     if "primaryKey" in field else False
-                ), 
+                ),
                 partition_key=(
                     field["partitionKey"]
                     if "partitionKey" in field else False
-                ), 
+                ),
                 auto_increment=(
                     field["autoIncrement"]
                     if "autoIncrement" in field else False
@@ -253,39 +262,57 @@ class Database:
                 not_null=(
                     field["notNull"]
                     if "notNull" in field else False
-                ), 
+                ),
                 dimension=(
                     field["dimension"]
                     if "dimension" in field else 0
                 )))
-        
+
         indexes = []
         for index in table["schema"]["indexes"]:
+            auto_build_index_policy = None
+            if "autoBuildPolicy" in index:
+                auto_build_index_policy = AutoBuildTool.get_auto_build_index_policy(index["autoBuildPolicy"])
             if index["indexType"] == IndexType.HNSW.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
                     index_type=IndexType.HNSW,
                     field=index["field"],
                     metric_type=getattr(MetricType, index["metricType"], None),
-                    params=HNSWParams(m=index["params"]["M"], 
+                    params=HNSWParams(m=index["params"]["M"],
                         efconstruction=index["params"]["efConstruction"]),
-                    auto_build=index["autoBuild"]))
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
+            elif index["indexType"] == IndexType.HNSWPQ.value:
+                indexes.append(VectorIndex(
+                    index_name=index["indexName"],
+                    index_type=IndexType.HNSWPQ,
+                    field=index["field"],
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    params=HNSWPQParams(m=index["params"]["M"],
+                        efconstruction=index["params"]["efConstruction"],
+                        NSQ=index["params"]["NSQ"],
+                        samplerate=index["params"]["sampleRate"]),
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.FLAT.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
                     index_type=IndexType.FLAT,
                     field=index["field"],
                     metric_type=getattr(MetricType, index["metricType"], None),
-                    auto_build=index["autoBuild"]))
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.PUCK.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
                     index_type=IndexType.PUCK,
                     field=index["field"],
                     metric_type=getattr(MetricType, index["metricType"], None),
-                    params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"], 
+                    params=PUCKParams(coarseClusterCount=index["params"]["coarseClusterCount"],
                         fineClusterCount=index["params"]["fineClusterCount"]),
-                    auto_build=index["autoBuild"]))
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
                 indexes.append(SecondaryIndex(
                     index_name=index["indexName"],
@@ -294,9 +321,9 @@ class Database:
                 raise ClientError("not supported index type:%s" % (index["indexType"]))
 
         schema = Schema(fields=fields, indexes=indexes)
-        return Table(self, table_name, table["replication"], partition, schema, 
+        return Table(self, table_name, table["replication"], partition, schema,
                 enable_dynamic_field=(
-                    table["enableDynamicField"] 
+                    table["enableDynamicField"]
                     if "enableDynamicField" in table else False
                 ),
                 description=table["description"],
@@ -304,7 +331,7 @@ class Database:
                 create_time=table["createTime"],
                 state=getattr(TableState, table["state"], None),
                 aliases=table["aliases"])
-    
+
     def table(self, table_name, config=None) -> Table:
         """get table
         Args:
@@ -320,16 +347,16 @@ class Database:
         """
         if not self.conn:
             raise ClientError('conn is closed')
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
-        
+
         response = self.conn.send_request(http_methods.POST,
                 path=uri,
                 params={b'list': b''},
                 body=orjson.dumps({'database': self.database_name}),
                 config=config)
-        
+
         res = []
         for table_name in response.tables:
             res.append(self.table(table_name, config))
