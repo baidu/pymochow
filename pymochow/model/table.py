@@ -597,6 +597,46 @@ class Table:
                 params={b'stats': b''},
                 config=config)
 
+    def alias(self, alias, config=None):
+        """create alias"""
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["alias"] = alias
+        json_body = orjson.dumps(body)
+
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
+
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'alias': b''},
+                config=config)
+
+    def unalias(self, alias, config=None):
+        """unalias"""
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["alias"] = alias
+        json_body = orjson.dumps(body)
+
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
+
+        return self.conn.send_request(http_methods.POST,
+                path=uri,
+                body=json_body,
+                params={b'unalias': b''},
+                config=config)
+
 class Row:
     """
     row, the object for document insert, query and search, the parameter depends on

@@ -42,6 +42,7 @@ client = pymochow.MochowClient(config)
 
 + Databse 操作
 + Table 操作
++ Alias 操作
 + Index 操作
 + Row 操作
 

@@ -336,6 +336,18 @@ class TestMochow:
         db.drop_database()
         self._client.close()
 
+    def alias_and_unalias(self):
+        """alias and unalias"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+        table_alias = 'book_segments_alias'
+        table.alias(table_alias)
+        table = db.table('book_segments')
+        logger.debug("table {}".format(table.to_dict()))
+        table.unalias(table_alias)
+        table = db.table('book_segments')
+        logger.debug("table {}".format(table.to_dict()))
+
 if __name__ == "__main__":
     account = 'root'
     api_key = '*********'
@@ -355,5 +367,6 @@ if __name__ == "__main__":
     test_vdb.update_data()
     test_vdb.delete_data()
     test_vdb.drop_and_create_vindex()
+    test_vdb.alias_and_unalias()
     test_vdb.delete_and_drop()
 
