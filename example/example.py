@@ -312,7 +312,7 @@ class TestMochow:
         elif self._index_type == IndexType.HNSWPQ:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSWPQ,
             field="vector", metric_type=MetricType.L2,
-            params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0)))
+            params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0), auto_build=False))
         elif self._index_type == IndexType.PUCK:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
             field="vector", metric_type=MetricType.L2,
