@@ -27,6 +27,7 @@ from pymochow.model.schema import (
     Schema,
     Field,
     SecondaryIndex,
+    FilteringIndex,
     VectorIndex,
     HNSWParams,
     HNSWPQParams,
@@ -122,6 +123,7 @@ class TestMochow:
             raise Exception("not support index type")
 
         indexes.append(SecondaryIndex(index_name="book_name_idx", field="bookName"))
+        indexes.append(FilteringIndex(index_name="book_name_filtering_idx", fields=["bookName"]))
         indexes.append(InvertedIndex(index_name="book_segment_inverted_idx",
                                fields=["segment"],
                                params=InvertedIndexParams(analyzer=InvertedIndexAnalyzer.CHINESE_ANALYZER,

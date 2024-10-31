@@ -37,6 +37,7 @@ class IndexType(Enum):
     
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
+    FILTERING_INDEX = "FILTERING"
 
     # inverted index type
     INVERTED_INDEX = "INVERTED"
@@ -61,7 +62,6 @@ class InvertedIndexFieldAttribute(Enum):
     """InvertedIndexFieldsAttribute"""
     NOT_ANALYZED = "ATTRIBUTE_NOT_ANALYZED"
     ANALYZED = "ATTRIBUTE_ANALYZED"
-
 
 @unique
 class FieldType(Enum):
