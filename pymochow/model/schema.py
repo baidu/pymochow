@@ -117,7 +117,13 @@ class Field:
             partition_key=False,
             auto_increment=False,
             not_null=False,
-            dimension=0):
+            dimension=0,
+            element_type=None,
+            max_capacity=None):
+        """
+        - 'dimension' is for FLOAT_VECTOR
+        - 'element_type' and 'max_capacity' is for ARRAY
+        """
         self._field_name = field_name
         self._field_type = field_type
         self._primary_key = primary_key
@@ -125,6 +131,8 @@ class Field:
         self._auto_increment = auto_increment
         self._not_null = not_null
         self._dimension = dimension
+        self._element_type = element_type
+        self._max_capacity = max_capacity
 
     @property
     def field_name(self):
@@ -161,6 +169,16 @@ class Field:
         """dimension"""
         return self._dimension
 
+    @property
+    def element_type(self):
+        """element type"""
+        return self._element_type
+
+    @property
+    def max_capacity(self):
+        """max capacity"""
+        return self._max_capacity
+
     def to_dict(self):
         """to dict"""
         res = {
@@ -176,6 +194,10 @@ class Field:
             res["autoIncrement"] = True
         if self.dimension > 0:
             res["dimension"] = self.dimension
+        if self.element_type is not None:
+            res["elementType"] = self.element_type
+        if self.max_capacity is not None:
+            res["maxCapacity"] = self.max_capacity
         return res
 
 
