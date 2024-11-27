@@ -13,6 +13,8 @@
 """
 This module provide table model.
 """
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Union, Tuple
 import copy
 import orjson
 from pymochow import utils
@@ -26,9 +28,13 @@ from pymochow.model.schema import (
     PUCKParams,
     DefaultAutoBuildPolicy,
     AutoBuildTool,
+    InvertedIndex,
+    InvertedIndexParams,
+    InvertedIndexAnalyzer,
+    InvertedIndexParseMode
 )
-from pymochow.model.enum import PartitionType, ReadConsistency
-from pymochow.model.enum import IndexType, IndexState, MetricType, AutoBuildPolicyType
+from pymochow.model.enum import (PartitionType, ReadConsistency,
+    IndexType, IndexState, MetricType, AutoBuildPolicyType, RequestType)
 from pymochow.exception import ClientError
 
 class Partition:
@@ -46,6 +52,388 @@ class Partition:
             "partitionNum": self._partition_num
         }
         return res
+
+
+@utils.deprecated("No longer used. Use SearchRequest instead.")
+class AnnSearch:
+    """ann search"""
+
+    def __init__(self, vector_field, vector_floats, params, filter=None):
+        """init"""
+        self._vector_field = vector_field
+        self._vector_floats = vector_floats
+        self._params = params
+        self._filter = filter
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            'vectorField': self._vector_field,
+            'vectorFloats': self._vector_floats,
+            'params': self._params.to_dict(),
+        }
+        if self._filter is not None:
+            res['filter'] = self._filter
+        return res
+
+
+class Vector(ABC):
+    """base class of vector"""
+    @abstractmethod
+    def representation(self):
+        """representation"""
+        pass
+
+
+class BatchQueryKey:
+    '''BatchQueryKey'''
+
+    def __init__(self, primary_key, partition_key=None):
+        '''init'''
+        self._primary_key = primary_key
+        self._partition_key = partition_key
+
+    def to_dict(self):
+        '''to dict'''
+
+        res = {'primaryKey': self._primary_key}
+        if self._partition_key is not None:
+            res['partitionKey'] = self._partition_key
+        return res
+
+
+class FloatVector(Vector):
+    """float vector"""
+
+    def __init__(self, floats: List[float]):
+        """init"""
+        self._floats = floats
+
+    def representation(self):
+        """representation"""
+        return self._floats
+
+
+class VectorSearchConfig:
+    """
+    Optional configurable params for vector search.
+
+    For each index algorithm, the params that could be set are:
+
+    | IndexType | Params              |
+    |-----------+---------------------|
+    | HNSW      | ef, pruning         |
+    | HNSWPQ    | ef, pruning         |
+    | PUCK      | search_coarse_count |
+    | FLAT      |                     |
+
+    """
+
+    def __init__(self, *,
+                 ef: int = None,
+                 pruning: bool = None,
+                 search_coarse_count: int = None):
+        """init"""
+        self._ef = ef
+        self._pruning = pruning
+        self._search_coarse_count = search_coarse_count
+
+    def to_dict(self):
+        """to_dict"""
+        res = {}
+        if self._ef is not None:
+            res['ef'] = self._ef
+        if self._pruning is not None:
+            res['pruning'] = self._pruning
+        if self._search_coarse_count is not None:
+            res['searchCoarseCount'] = self._search_coarse_count
+        return res
+
+
+class SearchRequest(ABC):
+    """base class"""
+    @abstractmethod
+    def to_dict(self) -> Dict:
+        """to_dict"""
+        pass
+
+    @abstractmethod
+    def type(self) -> RequestType:
+        """type"""
+        pass
+
+
+class VectorTopkSearchRequest(SearchRequest):
+    """ TopK search request """
+
+    def __init__(self, *,
+                 vector_field: str,
+                 vector: Vector = None,
+                 limit: int = 50,
+                 filter: str = None,
+                 config: VectorSearchConfig = None):
+        """init"""
+        self._vector_field = vector_field
+        self._vector = vector
+        self._limit = limit
+        self._filter = filter
+        self._config = config
+    
+    @property
+    def vector(self):
+        """get vector"""
+        return self._vector
+
+    @vector.setter
+    def vector(self, vector: Vector):
+        """set vector"""
+        self._vector = vector
+
+    def to_dict(self):
+        """to_dict"""
+        res = dict()
+
+        anns = {
+            "vectorField": self._vector_field,
+            "vectorFloats": self._vector.representation(),
+        }
+
+        if self._filter is not None:
+            anns["filter"] = self._filter
+
+        params = dict()
+        if self._config is not None:
+            params = self._config.to_dict()
+        if self._limit is not None:
+            params["limit"] = self._limit
+
+        if len(params) != 0:
+            anns["params"] = params
+
+        res["anns"] = anns
+        return res
+
+    def type(self):
+        return RequestType.SEARCH
+
+
+class VectorRangeSearchRequest(SearchRequest):
+    """ range search request """
+
+    def __init__(self, *,
+                 vector_field: str,
+                 distance_range: Tuple[float, float],
+                 vector: Vector = None,
+                 limit: int = None,
+                 filter: str = None,
+                 config: VectorSearchConfig = None):
+        """init"""
+        self._vector_field = vector_field
+        self._vector = vector
+        self._distance_near = distance_range[0]
+        self._distance_far = distance_range[1]
+        self._limit = limit
+        self._filter = filter
+        self._config = config
+    
+    @property
+    def vector(self):
+        """get vector"""
+        return self._vector
+
+    @vector.setter
+    def vector(self, vector: Vector):
+        """set vector"""
+        self._vector = vector
+
+    def to_dict(self):
+        """to_dict"""
+        res = dict()
+
+        anns = {
+            "vectorField": self._vector_field,
+            "vectorFloats": self._vector.representation(),
+        }
+
+        if self._filter is not None:
+            anns["filter"] = self._filter
+
+        params = dict()
+        if self._config is not None:
+            params = self._config.to_dict()
+        if self._distance_near is not None:
+            params["distanceNear"] = self._distance_near
+        if self._distance_far is not None:
+            params["distanceFar"] = self._distance_far
+        if self._limit is not None:
+            params["limit"] = self._limit
+
+        if len(params) != 0:
+            anns["params"] = params
+        res["anns"] = anns
+
+        return res
+
+    def type(self):
+        """type"""
+        return RequestType.SEARCH
+
+
+class VectorBatchSearchRequest(SearchRequest):
+    """batch search request"""
+
+    def __init__(self, *,
+                 vector_field: str,
+                 vectors: List[Vector] = None,
+                 limit: int = None,
+                 distance_range: Tuple[float, float] = None,
+                 filter: str = None,
+                 config: VectorSearchConfig = None):
+        """init"""
+        self._vector_field = vector_field
+        self._vectors = vectors
+        self._config = config
+        self._limit = limit
+        self._distance_range = distance_range
+        self._filter = filter
+    
+    @property
+    def vectors(self):
+        """get vectors"""
+        return self._vectors
+
+    @vectors.setter
+    def vectors(self, vectors: List[Vector]):
+        """set vectors"""
+        self._vectors = vectors
+
+    def to_dict(self):
+        """to_dict"""
+        res = dict()
+
+        vectors = []
+        for vector in self._vectors:
+            vectors.append(vector.representation())
+        anns = {
+            "vectorField": self._vector_field,
+            "vectorFloats": vectors
+        }
+        if self._filter is not None:
+            anns["filter"] = self._filter
+
+        params = {}
+        if self._config is not None:
+            params = self._config.to_dict()
+        if self._distance_range is not None:
+            if self._distance_range[0] is not None:
+                params["distanceNear"] = self._distance_range[0]
+            if self._distance_range[1] is not None:
+                params["distanceFar"] = self._distance_range[1]
+        if self._limit is not None:
+            params["limit"] = self._limit
+
+        if len(params) != 0:
+            anns["params"] = params
+
+        res["anns"] = anns
+        return res
+
+    def type(self):
+        """type"""
+        return RequestType.BATCH_SEARCH
+
+
+class BM25SearchRequest(SearchRequest):
+    """BM25 search request"""
+
+    def __init__(self, *,
+                 index_name: str,
+                 search_text: str,
+                 limit: int = None,
+                 filter: str = None):
+        """init"""
+        self._index_name = index_name
+        self._search_text = search_text
+        self._limit = limit
+        self._filter = filter
+
+    def to_dict(self):
+        """to_dict"""
+        res = {
+            "BM25SearchParams": {
+                "indexName": self._index_name,
+                "searchText": self._search_text
+            }
+        }
+
+        if self._limit is not None:
+            res["limit"] = self._limit
+
+        if self._filter is not None:
+            res["filter"] = self._filter
+
+        return res
+
+    def type(self):
+        """type"""
+        return RequestType.SEARCH
+
+
+VectorSearchRequest = Union[VectorTopkSearchRequest,
+                            VectorRangeSearchRequest,
+                            VectorBatchSearchRequest]
+
+
+class HybridSearchRequest(SearchRequest):
+    """Hybrid BM25 and vector search."""
+
+    def __init__(self, *,
+                 vector_request: VectorSearchRequest,
+                 bm25_request: BM25SearchRequest,
+                 vector_weight: float = 0.5,
+                 bm25_weight: float = 0.5,
+                 limit: int = None,
+                 filter: str = None):
+        """
+        init
+
+        'limit' and 'filter' are global settings, and they will
+        apply to both vector search and BM25 search. Avoid setting
+        them in 'bm25_request' or 'vector_request'.  Any settings in
+        'vector_request' or 'bm25_request' for 'limit' or 'filter'
+        will be overridden by the general settings.
+
+        """
+
+        self._vector_request = vector_request
+        self._bm25_request = bm25_request
+        self._vector_weight = vector_weight
+        self._bm25_weight = bm25_weight
+        self._limit = limit
+        self._filter = filter
+
+    def to_dict(self):
+        """to_dict"""
+        vector_search_params = self._vector_request.to_dict()
+        vector_search_params["anns"]["weight"] = self._vector_weight
+
+        bm25_search_params = self._bm25_request.to_dict()
+        bm25_search_params["BM25SearchParams"]["weight"] = self._bm25_weight
+
+        res = dict()
+        res.update(vector_search_params)
+        res.update(bm25_search_params)
+        if self._limit is not None:
+            res["limit"] = self._limit
+        if self._filter is not None:
+            res["filter"] = self._filter
+
+        return res
+
+    def type(self):
+        """type"""
+        return RequestType.SEARCH
+
 
 class Table:
     """
@@ -184,7 +572,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'insert': b''},
+                params={bytes(RequestType.INSERT): b''},
                 config=config)
 
     def upsert(self, rows, config=None):
@@ -209,7 +597,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'upsert': b''},
+                params={'upsert': b''},
                 config=config)
 
     def query(self, primary_key, partition_key=None, projections=None,
@@ -239,14 +627,46 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'query': b''},
+                params={bytes(RequestType.QUERY): b''},
                 config=config)
 
+    def batch_query(self, keys, projections=None,
+                    retrieve_vector=False,
+                    read_consistency=ReadConsistency.EVENTUAL,
+                    config=None):
+        """
+        batch_query
+        """
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        body = {}
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+        body["keys"] = []
+        for key in keys:
+            body["keys"].append(key.to_dict())
+
+        if projections is not None:
+            body["projections"] = projections
+        body["retrieveVector"] = retrieve_vector
+        body["readConsistency"] = read_consistency
+        json_body = orjson.dumps(body)
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
+
+        return self.conn.send_request(http_methods.POST, path=uri,
+                                      body=json_body,
+                                      params={b'batchQuery': b''},
+                                      config=config)
+
+
+    @utils.deprecated("Use 'vector_search' instead.")
     def search(self, anns, partition_key=None, projections=None,
             retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL,
             config=None):
         """
-        search
+        Deprecated. Use 'vector_search' instead.
         """
         if not self.conn:
             raise ClientError('conn is closed')
@@ -269,8 +689,87 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'search': b''},
+                params={bytes(RequestType.SEARCH): b''},
                 config=config)
+
+    def vector_search(self, *,
+                      request: VectorSearchRequest,
+                      partition_key: Dict[str, Any] = None,
+                      projections: List[str] = None,
+                      read_consistency: ReadConsistency = ReadConsistency.EVENTUAL,
+                      config: Dict[Any, Any] = None):
+        """vector search"""
+        if not isinstance(request, VectorSearchRequest.__args__):
+            raise ValueError("wrong type of argument 'request'")
+
+        return self._search(request=request,
+                            partition_key=partition_key,
+                            projections=projections,
+                            read_consistency=read_consistency,
+                            config=config)
+
+    def bm25_search(self, *,
+                    request: BM25SearchRequest,
+                    partition_key: Dict[str, Any] = None,
+                    projections: List[str] = None,
+                    read_consistency: ReadConsistency = ReadConsistency.EVENTUAL,
+                    config: Dict[Any, Any] = None):
+        """BM25 search"""
+        if not isinstance(request, BM25SearchRequest):
+            raise ValueError("wrong type of argument 'request'")
+
+        return self._search(request=request,
+                            partition_key=partition_key,
+                            projections=projections,
+                            read_consistency=read_consistency,
+                            config=config)
+
+    def hybrid_search(self, *,
+                      request: HybridSearchRequest,
+                      partition_key: Dict[str, Any] = None,
+                      projections: List[str] = None,
+                      read_consistency: ReadConsistency = ReadConsistency.EVENTUAL,
+                      config: Dict[Any, Any] = None):
+        """hybrid search"""
+        if not isinstance(request, HybridSearchRequest):
+            raise ValueError("wrong type of argument 'request'")
+
+        return self._search(request=request,
+                            partition_key=partition_key,
+                            projections=projections,
+                            read_consistency=read_consistency,
+                            config=config)
+
+    def _search(self, *,
+                request: SearchRequest,
+                partition_key: Dict[str, Any] = None,
+                projections: List[str] = None,
+                read_consistency: ReadConsistency = ReadConsistency.EVENTUAL,
+                config: Dict[Any, Any] = None):
+        """internal use only"""
+        if not self.conn:
+            raise ClientError('conn is closed')
+
+        body = request.to_dict()
+        body["database"] = self.database_name
+        body["table"] = self.table_name
+
+        if partition_key is not None:
+            body["partitionKey"] = partition_key
+        if projections is not None:
+            body["projections"] = projections
+        body["readConsistency"] = read_consistency
+        json_body = orjson.dumps(body)
+
+        config = self._merge_config(config)
+        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
+
+        req_type = bytes(request.type())
+        return self.conn.send_request(http_methods.POST,
+                                      path=uri,
+                                      body=json_body,
+                                      params={req_type: b''},
+                                      config=config)
 
     def delete(self, primary_key=None, partition_key=None, filter=None, config=None):
         """
@@ -303,7 +802,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'delete': b''},
+                params={bytes(RequestType.DELETE): b''},
                 config=config)
 
     def update(self, primary_key=None, partition_key=None, update_fields=None, config=None):
@@ -333,7 +832,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'update': b''},
+                params={bytes(RequestType.UPDATE): b''},
                 config=config)
 
     def select(self, filter=None, marker=None, projections=None, read_consistency=ReadConsistency.EVENTUAL, limit=10,
@@ -363,14 +862,15 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'select': b''},
+                params={bytes(RequestType.SELECT): b''},
                 config=config)
 
+    @utils.deprecated("Use vector_search() with VectorBatchSearchRequest instead")
     def batch_search(self, anns, partition_key=None, projections=None, 
             retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL, 
             config=None):
         """
-        batch_search
+        Deprecated. Use vector_search() with VectorBatchSearchRequest instead.
         """
         if not self.conn:
             raise ClientError('conn is closed')
@@ -393,9 +893,9 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'batchSearch': b''},
+                params={bytes(RequestType.BATCH_SEARCH): b''},
                 config=config)
-
+    
     def add_fields(self, schema, config=None):
         """
         add_fields
@@ -415,7 +915,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'addField': b''},
+                params={bytes(RequestType.ADD_FIELD): b''},
                 config=config)
 
     def create_indexes(self, indexes, config=None):
@@ -444,7 +944,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'create': b''},
+                params={bytes(RequestType.CREATE): b''},
                 config=config)
 
     def modify_index(self, index_name, auto_build, auto_build_index_policy=DefaultAutoBuildPolicy, config=None):
@@ -471,7 +971,7 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'modify': b''},
+                params={bytes(RequestType.MODIFY): b''},
                 config=config)
 
     def drop_index(self, index_name, config=None):
@@ -502,7 +1002,7 @@ class Table:
                 body=orjson.dumps({"database": self.database_name,
                     "table": self.table_name,
                     "indexName": index_name}),
-                params={b'rebuild': b''},
+                params={bytes(RequestType.REBUILD): b''},
                 config=config)
 
     def describe_index(self, index_name, config=None):
@@ -515,7 +1015,7 @@ class Table:
 
         response = self.conn.send_request(http_methods.POST,
                 path=uri,
-                params={b'desc': b''},
+                params={bytes(RequestType.DESC): b''},
                 body=orjson.dumps({
                     'database': self.database_name,
                     'table': self.table_name,
@@ -574,6 +1074,12 @@ class Table:
             return SecondaryIndex(
                 index_name=index["indexName"],
                 field=index["field"])
+        elif index["indexType"] == IndexType.INVERTED_INDEX.value:
+            return InvertedIndex(
+                index_name=index["indexName"],
+                fields=index["fields"],
+                params=InvertedIndexParams(analyzer=getattr(InvertedIndexAnalyzer, index["params"]["analyzer"], None),
+                                    parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None)))
         else:
             raise ClientError("not supported index type:%s" % (index["indexType"]))
 
@@ -594,48 +1100,9 @@ class Table:
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
-                params={b'stats': b''},
+                params={bytes(RequestType.STATS): b''},
                 config=config)
 
-    def alias(self, alias, config=None):
-        """create alias"""
-        if not self.conn:
-            raise ClientError('conn is closed')
-
-        body = {}
-        body["database"] = self.database_name
-        body["table"] = self.table_name
-        body["alias"] = alias
-        json_body = orjson.dumps(body)
-
-        config = self._merge_config(config)
-        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
-
-        return self.conn.send_request(http_methods.POST,
-                path=uri,
-                body=json_body,
-                params={b'alias': b''},
-                config=config)
-
-    def unalias(self, alias, config=None):
-        """unalias"""
-        if not self.conn:
-            raise ClientError('conn is closed')
-
-        body = {}
-        body["database"] = self.database_name
-        body["table"] = self.table_name
-        body["alias"] = alias
-        json_body = orjson.dumps(body)
-
-        config = self._merge_config(config)
-        uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'table')
-
-        return self.conn.send_request(http_methods.POST,
-                path=uri,
-                body=json_body,
-                params={b'unalias': b''},
-                config=config)
 
 class Row:
     """
@@ -651,27 +1118,7 @@ class Row:
         return self._data
 
 
-class AnnSearch:
-    """ann search"""
-
-    def __init__(self, vector_field, vector_floats, params, filter=None):
-        self._vector_field = vector_field
-        self._vector_floats = vector_floats
-        self._params = params
-        self._filter = filter
-
-    def to_dict(self):
-        """to dict"""
-        res = {
-            'vectorField': self._vector_field,
-            'vectorFloats': self._vector_floats,
-            'params': self._params.to_dict()
-        }
-        if self._filter is not None:
-            res['filter'] = self._filter
-        return res
-
-
+@utils.deprecated("Use VectorSearchConfig instead")
 class HNSWSearchParams:
     "hnsw search params"
 
@@ -718,6 +1165,30 @@ class HNSWPQSearchParams:
         return res
 
 
+@utils.deprecated("Use VectorSearchConfig instead")
+class HNSWPQSearchParams:
+    "hnswpq search params"
+
+    def __init__(self, ef=None, distance_far=None, distance_near=None, limit=50):
+        self._ef = ef
+        self._distance_far = distance_far
+        self._distance_near = distance_near
+        self._limit = limit
+
+    def to_dict(self):
+        """to dict"""
+        res = {}
+        if self._ef is not None:
+            res['ef'] = self._ef
+        if self._distance_far is not None:
+            res['distanceFar'] = self._distance_far
+        if self._distance_near is not None:
+            res['distanceNear'] = self._distance_near
+        res['limit'] = self._limit
+        return res
+
+
+@utils.deprecated("Use VectorSearchConfig instead")
 class PUCKSearchParams:
     "puck search params"
 
@@ -735,6 +1206,7 @@ class PUCKSearchParams:
         return res
 
 
+@utils.deprecated("Use VectorSearchConfig instead")
 class FLATSearchParams:
     "flat search params"
 

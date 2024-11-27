@@ -12,7 +12,10 @@
 """
 This module provide schema.
 """
-from pymochow.model.enum import IndexType, AutoBuildPolicyType
+from typing import Dict, List
+from pymochow.model.enum import (
+    IndexType, AutoBuildPolicyType, InvertedIndexAnalyzer, InvertedIndexParseMode, InvertedIndexFieldAttribute
+)
 
 
 class AutoBuildTiming:
@@ -228,7 +231,7 @@ class HNSWPQParams:
         self.ef_construction = efconstruction
         self.NSQ = NSQ
         self.samplerate = samplerate
-
+    
     def to_dict(self):
         """to dict"""
         res = {
@@ -257,7 +260,7 @@ class PUCKParams:
         }
         return res
 
-
+    
 class VectorIndex(IndexField):
     """
     Args:
@@ -346,6 +349,63 @@ class SecondaryIndex(IndexField):
             "indexType": self.index_type,
             "field": self.field
         }
+        return res
+
+
+class InvertedIndexParams:
+    """
+    inverted index params
+    """
+    def __init__(
+            self,
+            analyzer: InvertedIndexAnalyzer=None,
+            parse_mode: InvertedIndexParseMode=None):
+        """init"""
+        self._params = {}
+        if analyzer is not None:
+            self._params["analyzer"] = analyzer
+        if parse_mode is not None:
+            self._params["parseMode"] = parse_mode
+
+    def to_dict(self) -> Dict[str, str]:
+        """to dict"""
+        return self._params
+
+
+class InvertedIndex(IndexField):
+    """inverted index (for BM25 search)"""
+    def __init__(
+            self,
+            index_name: str,
+            fields: List[str],
+            params: InvertedIndexParams,
+            field_attributes: List[InvertedIndexFieldAttribute] = []):
+        """init
+
+        InvertedIndex 用于在 create_table 时，为 'fields' 指定的列建立
+        倒排索引。注意 fields 中包含的列应当是 TEXT、TEXT_GBK 或者
+        TEXT_GB18030 类型，否则 create_table 会失败。
+
+        'attributes' 可以为空, 否则, 应当与 fields 有相同数量的元素
+
+        """
+        super().__init__(index_name=index_name,
+                         field=None,
+                         index_type=IndexType.INVERTED_INDEX)
+        self._fields = fields
+        self._field_attributes = field_attributes
+        self._params = params
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "indexName": self.index_name,
+            "indexType": self.index_type,
+            "fields": self._fields,
+            "params": self._params.to_dict()
+        }
+        if len(self._field_attributes) != 0:
+            res["fieldsIndexAttributes"] = self._field_attributes
         return res
 
 

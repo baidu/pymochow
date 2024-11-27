@@ -34,9 +34,33 @@ class IndexType(Enum):
     FLAT = "FLAT"
     PUCK = "PUCK"
     HNSWPQ = "HNSWPQ"
-
+    
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
+
+    # inverted index type
+    INVERTED_INDEX = "INVERTED"
+
+
+@unique
+class InvertedIndexAnalyzer(Enum):
+    """inverted index analyzer"""
+    ENGLISH_ANALYZER = "ENGLISH_ANALYZER"
+    CHINESE_ANALYZER = "CHINESE_ANALYZER"
+    DEFAULT_ANALYZER = "DEFAULT_ANALYZER"
+
+
+@unique
+class InvertedIndexParseMode(Enum):
+    """parse mode"""
+    COARSE_MODE = "COARSE_MODE"
+    FINE_MODE = "FINE_MODE"
+
+
+class InvertedIndexFieldAttribute(Enum):
+    """InvertedIndexFieldsAttribute"""
+    NOT_ANALYZED = "ATTRIBUTE_NOT_ANALYZED"
+    ANALYZED = "ATTRIBUTE_ANALYZED"
 
 
 @unique
@@ -185,3 +209,62 @@ class AutoBuildPolicyType(Enum):
     ROW_COUNT_INCREMENT = "ROW_COUNT_INCREMENT"
     #RESOURCE_USAGE = 4
 
+
+@unique
+class RequestType(Enum):
+    """request type"""
+
+    def __str__(self):
+        return str(self.value)
+
+    def __bytes__(self):
+        return bytes(self.value, 'utf-8')
+
+    SHOW = "show"
+    LIST = "list"
+    DESC = "desc"
+    ADD_FIELD = "addField"
+    MODIFY = "modify"
+    REBUILD = "rebuild"
+    INSERT = "insert"
+    UPSERT = "upsert"
+    DELETE = "delete"
+    UPDATE = "update"
+    QUERY = "query"
+    BATCH_QUERY = "batchQuery"
+    SEARCH = "search"
+    BATCH_SEARCH = "batchSearch"
+    CREATE = "create"
+    DROP = "drop"
+    ALIAS = "alias"
+    UNALIAS = "unalias"
+    STATS = "stats"
+    SELECT = "select"
+
+
+@unique
+class DocumentLayout(Enum):
+    """
+    DocumentLayout: Enum representing the layout or structure of a document.
+
+    GENERAL: Represents a general layout, not specific to any particular format.
+    """
+    GENERAL = "GENERAL"
+
+
+@unique
+class Lang(Enum):
+    """
+    Lang: Enum representing the language of a document.
+
+    ZH: Represents Chinese language (ZH).
+    EN: Represents English language (EN).
+    """
+    ZH = "ZH"
+    EN = "EN"
+
+
+@unique
+class DocSplitMode(Enum):
+    PAGE = "PAGE"
+    SENTENCE = "SENTENCE"

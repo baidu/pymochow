@@ -31,17 +31,26 @@ from pymochow.model.schema import (
     HNSWParams,
     HNSWPQParams,
     PUCKParams,
-    AutoBuildTiming
+    AutoBuildTiming,
+    InvertedIndex,
+    InvertedIndexParams
 )
-from pymochow.model.enum import FieldType, IndexType, MetricType, ServerErrCode
+from pymochow.model.enum import (
+    FieldType, IndexType, InvertedIndexAnalyzer, InvertedIndexParseMode, MetricType, ServerErrCode,
+    InvertedIndexFieldAttribute
+)
 from pymochow.model.enum import TableState, IndexState
 from pymochow.model.table import (
     Partition,
     Row,
-    AnnSearch,
-    HNSWSearchParams,
-    HNSWPQSearchParams,
-    PUCKSearchParams
+    FloatVector,
+    BatchQueryKey,
+    VectorSearchConfig,
+    VectorTopkSearchRequest,
+    VectorRangeSearchRequest,
+    VectorBatchSearchRequest,
+    BM25SearchRequest,
+    HybridSearchRequest
 )
 
 logging.basicConfig(filename='example.log', level=logging.DEBUG,
@@ -49,12 +58,12 @@ logging.basicConfig(filename='example.log', level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 class TestMochow:
-    def __init__(self, config, index_type):
+    def __init__(self, config, vector_index_type):
         """
         init mochow client
         """
         self._client = pymochow.MochowClient(config)
-        self._index_type = index_type
+        self._vector_index_type = vector_index_type
     
     def clear(self):
         db = None
@@ -91,27 +100,31 @@ class TestMochow:
         fields.append(Field("bookName", FieldType.STRING, not_null=True))
         fields.append(Field("author", FieldType.STRING))
         fields.append(Field("page", FieldType.UINT32))
-        fields.append(Field("segment", FieldType.STRING))
+        fields.append(Field("segment", FieldType.TEXT))
         fields.append(Field("vector", FieldType.FLOAT_VECTOR, not_null=True, dimension=4))
         indexes = []
 
-        if self._index_type == IndexType.HNSW:
+        if self._vector_index_type == IndexType.HNSW:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
-            field="vector", metric_type=MetricType.L2,
+            field="vector", metric_type=MetricType.L2, 
             params=HNSWParams(m=32, efconstruction=200)))
-        elif self._index_type == IndexType.HNSWPQ:
+        elif self._vector_index_type == IndexType.HNSWPQ:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSWPQ,
-            field="vector", metric_type=MetricType.L2,
+            field="vector", metric_type=MetricType.L2, 
             params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0)))
-        elif self._index_type == IndexType.PUCK:
+        elif self._vector_index_type == IndexType.PUCK:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
-            field="vector", metric_type=MetricType.L2,
+            field="vector", metric_type=MetricType.L2, 
             params=PUCKParams(coarseClusterCount=5, fineClusterCount=5)))
         else:
             raise Exception("not support index type")
-        
-        indexes.append(SecondaryIndex(index_name="book_name_idx", field="bookName"))
 
+        indexes.append(SecondaryIndex(index_name="book_name_idx", field="bookName"))
+        indexes.append(InvertedIndex(index_name="book_segment_inverted_idx",
+                               fields=["segment"],
+                               params=InvertedIndexParams(analyzer=InvertedIndexAnalyzer.CHINESE_ANALYZER,
+                                                          parse_mode=InvertedIndexParseMode.COARSE_MODE),
+                               field_attributes=[InvertedIndexFieldAttribute.ANALYZED]))
         db.create_table(
             table_name=table_name,
             replication=3,
@@ -210,13 +223,25 @@ class TestMochow:
         projections = ["id", "bookName"]
         res = table.query(primary_key=primary_key, projections=projections, 
                 retrieve_vector=True)
-        logger.debug("res: {}".format(res))
+        logger.debug("query res: {}".format(res))
 
-    def search_data(self):
+    def batch_query_data(self):
+        """query data"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+        projections = ["id", "bookName"]
+        res = table.batch_query(keys=[BatchQueryKey({'id': '0001'}),
+                                      BatchQueryKey({'id': '0002'}),
+                                      BatchQueryKey({'id': '1003'})],
+                                projections=projections,
+                                retrieve_vector=True)
+        logger.debug("batch query res: {}".format(res))
+
+    def vector_search(self):
         """search data"""
         db = self._client.database('book')
         table = db.table('book_segments')
-        
+
         table.rebuild_index("vector_idx")
         while True:
             time.sleep(2)
@@ -224,31 +249,84 @@ class TestMochow:
             if index.state == IndexState.NORMAL:
                 break
 
-        # single search
-        if self._index_type == IndexType.HNSW:
-            anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
-                params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
-        elif self._index_type == IndexType.HNSWPQ:
-            anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
-                params=HNSWPQSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
-        elif self._index_type == IndexType.PUCK:
-            anns = AnnSearch(vector_field="vector", vector_floats=[1, 0.21, 0.213, 0],
-                params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
-        res = table.search(anns=anns)
-        logger.debug("single search res: {}".format(res))
+        # single topk search
+        if self._vector_index_type == IndexType.HNSW or self._vector_index_type == IndexType.HNSWPQ:
+            request = VectorTopkSearchRequest(vector_field="vector", vector=FloatVector([1, 0.21, 0.213, 0]),
+                                              limit=10, filter="bookName='三国演义'",
+                                              config=VectorSearchConfig(ef=200))
+        elif self._vector_index_type == IndexType.PUCK:
+            request = VectorTopkSearchRequest(vector_field="vector", vector=FloatVector([1, 0.21, 0.213, 0]),
+                                              limit=5, filter="bookName='三国演义'",
+                                              config=VectorSearchConfig(search_coarse_count=5))
+        res = table.vector_search(request=request)
+        logger.debug("topk search res: {}".format(res))
+
+        # single range search
+        if self._vector_index_type == IndexType.HNSW or self._vector_index_type == IndexType.HNSWPQ:
+            request = VectorRangeSearchRequest(vector_field="vector", vector=FloatVector([1, 0.21, 0.213, 0]),
+                                               distance_range=(0, 20), limit=10,
+                                               filter="bookName='三国演义'",
+                                               config=VectorSearchConfig(ef=200))
+        elif self._vector_index_type == IndexType.PUCK:
+            request = VectorRangeSearchRequest(vector_field="vector", vector=FloatVector([1, 0.21, 0.213, 0]),
+                                               distance_range=(0, 20), limit=5,
+                                               config=VectorSearchConfig(search_coarse_count=5))
+        res = table.vector_search(request=request)
+        logger.debug("range search res: {}".format(res))
 
         # batch search
-        if self._index_type == IndexType.HNSW:
-            anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
-                params=HNSWSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
-        elif self._index_type == IndexType.HNSWPQ:
-            anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
-                params=HNSWPQSearchParams(ef=200, limit=10), filter="bookName='三国演义'")
-        elif self._index_type == IndexType.PUCK:
-            anns = AnnSearch(vector_field="vector", vector_floats=[[1, 0.21, 0.213, 0], [1, 0.32, 0.513, 0]],
-                params=PUCKSearchParams(searchCoarseCount=5, limit=5), filter="bookName='三国演义'")
-        res = table.batch_search(anns=anns)
+        if self._vector_index_type == IndexType.HNSW or self._vector_index_type == IndexType.HNSWPQ:
+            request = VectorBatchSearchRequest(vector_field="vector",
+                                               vectors=[FloatVector([1, 0.21, 0.213, 0]),
+                                                        FloatVector([1, 0.32, 0.513, 0])],
+                                               limit=10, filter="bookName='三国演义'",
+                                               config=VectorSearchConfig(ef=200))
+        elif self._vector_index_type == IndexType.PUCK:
+            request = VectorBatchSearchRequest(vector_field="vector",
+                                               vectors=[FloatVector([1, 0.21, 0.213, 0]),
+                                                        FloatVector([1, 0.32, 0.513, 0])],
+                                               limit=5, filter="bookName='三国演义'",
+                                               config=VectorSearchConfig(search_coarse_count=5))
+        res = table.vector_search(request=request)
         logger.debug("batch search res: {}".format(res))
+
+    def bm25_search(self):
+        """bm25 search"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+
+        request = BM25SearchRequest(index_name="book_segment_inverted_idx",
+                                    search_text="吕布",
+                                    limit=10,
+                                    filter="bookName='三国演义'")
+        res = table.bm25_search(request=request)
+        logger.debug("BM25 search res: {}".format(res))
+
+    def hybrid_search(self):
+        """do anns and/or bm25 search"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+
+        if self._vector_index_type == IndexType.HNSW or self._vector_index_type == IndexType.HNSWPQ:
+            config = VectorSearchConfig(ef=200)
+        elif self._vector_index_type == IndexType.PUCK:
+            config = VectorSearchConfig(search_coarse_count=5)
+        vector_request = VectorTopkSearchRequest(vector_field="vector",
+                                                 vector=FloatVector([1, 0.21, 0.213, 0]),
+                                                 limit=None,
+                                                 config=config)
+        bm25_request = BM25SearchRequest(index_name="book_segment_inverted_idx",
+                                         search_text="吕布")
+        hybrid_request = HybridSearchRequest(vector_request=vector_request,
+                                             vector_weight=0.4,
+                                             bm25_request=bm25_request,
+                                             bm25_weight=0.6,
+                                             filter="bookName='三国演义'",
+                                             limit=15)
+
+        res = table.hybrid_search(request=hybrid_request)
+
+        logger.debug("hybrid search res: {}".format(res))
 
     def select_data(self):
         """select data"""
@@ -305,23 +383,23 @@ class TestMochow:
                     break
         
         indexes = []
-        if self._index_type == IndexType.HNSW:
+        if self._vector_index_type == IndexType.HNSW:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSW,
-            field="vector", metric_type=MetricType.L2,
+            field="vector", metric_type=MetricType.L2, 
             params=HNSWParams(m=16, efconstruction=200), auto_build=False))
-        elif self._index_type == IndexType.HNSWPQ:
+        elif self._vector_index_type == IndexType.HNSWPQ:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.HNSWPQ,
-            field="vector", metric_type=MetricType.L2,
-            params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0), auto_build=False))
-        elif self._index_type == IndexType.PUCK:
+            field="vector", metric_type=MetricType.L2, 
+            params=HNSWPQParams(m=16, efconstruction=200, NSQ=4, samplerate=1.0)))
+        elif self._vector_index_type == IndexType.PUCK:
             indexes.append(VectorIndex(index_name="vector_idx", index_type=IndexType.PUCK,
-            field="vector", metric_type=MetricType.L2,
+            field="vector", metric_type=MetricType.L2, 
             params=PUCKParams(coarseClusterCount=5, fineClusterCount=5), auto_build=False))
         else:
             raise Exception("not support index type")
         table.create_indexes(indexes)
         time.sleep(1)
-        table.modify_index(index_name="vector_idx", auto_build=True,
+        table.modify_index(index_name="vector_idx", auto_build=True, 
                         auto_build_index_policy=AutoBuildTiming("2024-01-01 00:00:00"))
         index = table.describe_index("vector_idx")
         logger.debug("index: {}".format(index.to_dict()))
@@ -336,26 +414,14 @@ class TestMochow:
         db.drop_database()
         self._client.close()
 
-    def alias_and_unalias(self):
-        """alias and unalias"""
-        db = self._client.database('book')
-        table = db.table('book_segments')
-        table_alias = 'book_segments_alias'
-        table.alias(table_alias)
-        table = db.table('book_segments')
-        logger.debug("table {}".format(table.to_dict()))
-        table.unalias(table_alias)
-        table = db.table('book_segments')
-        logger.debug("table {}".format(table.to_dict()))
-
 if __name__ == "__main__":
     account = 'root'
-    api_key = '*********'
+    api_key = '********'
     endpoint = 'http://*.*.*.*:*' #example:http://127.0.0.1:8511
 
     config = Configuration(credentials=BceCredentials(account, api_key),
             endpoint=endpoint)
-    test_vdb = TestMochow(config, IndexType.HNSW)
+    test_vdb = TestMochow(config, IndexType.HNSWPQ)
     test_vdb.clear()
     test_vdb.create_db_and_table()
     test_vdb.upsert_data()
@@ -363,10 +429,12 @@ if __name__ == "__main__":
     test_vdb.change_table_schema()
     test_vdb.show_table_stats()
     test_vdb.query_data()
-    test_vdb.search_data()
+    test_vdb.batch_query_data()
+    test_vdb.vector_search()
+    test_vdb.bm25_search()
+    test_vdb.hybrid_search()
     test_vdb.update_data()
     test_vdb.delete_data()
     test_vdb.drop_and_create_vindex()
-    test_vdb.alias_and_unalias()
     test_vdb.delete_and_drop()
 

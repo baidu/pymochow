@@ -188,8 +188,9 @@ class HTTPClient:
 
         sign_headers = sign_function(
             config.credentials, http_method, path, headers, params)
-        headers.update(sign_headers)
         
+        headers.update(sign_headers)
+
         encoded_params = utils.get_canonical_querystring(params, False)
         if len(encoded_params) > 0:
             uri = path + b'?' + encoded_params
@@ -205,7 +206,7 @@ class HTTPClient:
                 if should_get_new_date is True:
                     headers[http_headers.DATE] = utils.get_canonical_time()
 
-                _logger.debug('request args:method=%s, uri=%s, headers=%s, patams=%s, body=%s',
+                _logger.debug('request args:method=%s, uri=%s, headers=%s, params=%s, body=%s',
                         http_method, uri, headers, params, body)
 
                 if retries_attempted > 0 and offset is not None:

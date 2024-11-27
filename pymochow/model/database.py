@@ -31,6 +31,10 @@ from pymochow.model.schema import (
     HNSWPQParams,
     PUCKParams,
     AutoBuildTool,
+    InvertedIndex,
+    InvertedIndexParams,
+    InvertedIndexAnalyzer,
+    InvertedIndexParseMode
 )
 from pymochow.model.enum import IndexType, MetricType, TableState
 
@@ -317,6 +321,12 @@ class Database:
                 indexes.append(SecondaryIndex(
                     index_name=index["indexName"],
                     field=index["field"]))
+            elif index["indexType"] == IndexType.INVERTED_INDEX.value:
+                indexes.append(InvertedIndex(
+                    index_name=index["indexName"],
+                    fields=index["fields"],
+                    params=InvertedIndexParams(analyzer=getattr(InvertedIndexAnalyzer, index["params"]["analyzer"], None),
+                                        parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None))))
             else:
                 raise ClientError("not supported index type:%s" % (index["indexType"]))
 

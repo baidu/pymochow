@@ -38,7 +38,7 @@ class Configuration(object):
                  backup_endpoint=None,
                  proxy_host=None,
                  proxy_port=None,
-                 uri_prefix=None):
+                 uri_prefix=None,):
         """初始化方法，用于创建 Client 实例。
         
         Args:

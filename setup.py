@@ -34,7 +34,14 @@ setup(
         'pymochow.http',
         'pymochow.retry',
         'pymochow.client',
-        'pymochow.model'
+        'pymochow.model',
+        'pymochow.ai',
+        'pymochow.ai.dochub',
+        'pymochow.ai.parser',
+        'pymochow.ai.splitter',
+        'pymochow.ai.processor',
+        'pymochow.ai.embedder',
+        'pymochow.ai.pipeline'
     ],
     url='http://bce.baidu.com',
     license='Apache License 2.0',

@@ -27,6 +27,9 @@ import hashlib
 import base64
 import string
 import sys
+import warnings
+import functools
+
 try:
     from urllib.parse import urlparse
 except ImportError:
@@ -781,3 +784,38 @@ def default_progress_callback(consumed_bytes, total_bytes):
             print("\r{}%[{}->{}]".format(rate, start_progress, end_progress), end="")
         
         sys.stdout.flush()
+
+
+def deprecated(msg: str):
+    """deprecated api indication"""
+    def decorator(obj):
+        if isinstance(obj, type):
+            orig_init = obj.__init__
+
+            @functools.wraps(obj.__init__)
+            def new_init(self, *args, **kwargs):
+                warnings.warn(msg, DeprecationWarning, stacklevel=2)
+                orig_init(self, *args, **kwargs)
+
+            obj.__init__ = new_init
+            return obj
+
+        elif callable(obj):
+            @functools.wraps(obj)
+            def wrapper(*args, **kwargs):
+                warnings.warn(msg, DeprecationWarning, stacklevel=2)
+                return obj(*args, **kwargs)
+            return wrapper
+    return decorator
+
+
+def escape_bm25_search_text(original_text: str) -> str:
+    """escape the special characters in bm25 search text"""
+
+    buffer = []
+    escaped_chars = set(r'\+-!():^[]{}~*?|&')
+    for c in original_text:
+        if c in escaped_chars:
+            buffer.append('\\')
+        buffer.append(c)
+    return ''.join(buffer)
