@@ -14,7 +14,11 @@ This module provide schema.
 """
 from typing import Dict, List
 from pymochow.model.enum import (
-    IndexType, AutoBuildPolicyType, InvertedIndexAnalyzer, InvertedIndexParseMode, InvertedIndexFieldAttribute
+    IndexType,
+    AutoBuildPolicyType,
+    InvertedIndexAnalyzer,
+    InvertedIndexParseMode,
+    InvertedIndexFieldAttribute
 )
 
 
@@ -117,7 +121,13 @@ class Field:
             partition_key=False,
             auto_increment=False,
             not_null=False,
-            dimension=0):
+            dimension=0,
+            element_type=None,
+            max_capacity=None):
+        """
+        - 'dimension' is for FLOAT_VECTOR
+        - 'element_type' and 'max_capacity' is for ARRAY
+        """
         self._field_name = field_name
         self._field_type = field_type
         self._primary_key = primary_key
@@ -125,6 +135,8 @@ class Field:
         self._auto_increment = auto_increment
         self._not_null = not_null
         self._dimension = dimension
+        self._element_type = element_type
+        self._max_capacity = max_capacity
 
     @property
     def field_name(self):
@@ -161,6 +173,16 @@ class Field:
         """dimension"""
         return self._dimension
 
+    @property
+    def element_type(self):
+        """element type"""
+        return self._element_type
+
+    @property
+    def max_capacity(self):
+        """max capacity"""
+        return self._max_capacity
+
     def to_dict(self):
         """to dict"""
         res = {
@@ -176,6 +198,10 @@ class Field:
             res["autoIncrement"] = True
         if self.dimension > 0:
             res["dimension"] = self.dimension
+        if self.element_type is not None:
+            res["elementType"] = self.element_type
+        if self.max_capacity is not None:
+            res["maxCapacity"] = self.max_capacity
         return res
 
 
@@ -348,6 +374,59 @@ class SecondaryIndex(IndexField):
             "indexName": self.index_name,
             "indexType": self.index_type,
             "field": self.field
+        }
+        return res
+
+class FilteringIndex(IndexField):
+    """filtering index"""
+
+    def __init__(
+            self,
+            index_name: str,
+            fields: List[str]):
+        """init
+
+        FilteringIndex 用于在 create_table 时，为 'fields' 指定的列建立FILTERING索引。
+
+        """
+        super().__init__(index_name=index_name,
+                         field=None,
+                         index_type=IndexType.FILTERING_INDEX)
+        self._fields = fields
+
+    @classmethod
+    def from_dict_list(cls,
+                       index_name: str,
+                       fields: List[Dict[str, str]]):
+        """
+        create FilteringIndex instance from dict list
+        """
+        field_list = []
+        for field_dict in fields:
+            field = field_dict["field"]
+            field_list.append(field)
+        return cls(index_name, field_list)
+
+    @classmethod
+    def from_list(cls,
+                  index_name: str,
+                  fields: List[str]):
+        """
+        create FilteringIndex instance from list
+        """
+        return cls(index_name, fields)
+
+    def to_dict(self):
+        """to dict"""
+        fields_dict_list = []
+        for field in self._fields:
+            field_dict = {}
+            field_dict["field"] = field
+            fields_dict_list.append(field_dict)
+        res = {
+            "indexName": self.index_name,
+            "indexType": self.index_type,
+            "fields": fields_dict_list
         }
         return res
 

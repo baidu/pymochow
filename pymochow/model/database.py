@@ -27,6 +27,7 @@ from pymochow.model.schema import (
     Field,
     VectorIndex,
     SecondaryIndex,
+    FilteringIndex,
     HNSWParams,
     HNSWPQParams,
     PUCKParams,
@@ -321,6 +322,10 @@ class Database:
                 indexes.append(SecondaryIndex(
                     index_name=index["indexName"],
                     field=index["field"]))
+            elif index["indexType"] == IndexType.FILTERING_INDEX.value:
+                indexes.append(FilteringIndex.from_dict_list(
+                    index_name=index["indexName"],
+                    fields=index["fields"]))
             elif index["indexType"] == IndexType.INVERTED_INDEX.value:
                 indexes.append(InvertedIndex(
                     index_name=index["indexName"],

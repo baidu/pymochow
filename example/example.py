@@ -27,6 +27,7 @@ from pymochow.model.schema import (
     Schema,
     Field,
     SecondaryIndex,
+    FilteringIndex,
     VectorIndex,
     HNSWParams,
     HNSWPQParams,
@@ -36,7 +37,7 @@ from pymochow.model.schema import (
     InvertedIndexParams
 )
 from pymochow.model.enum import (
-    FieldType, IndexType, InvertedIndexAnalyzer, InvertedIndexParseMode, MetricType, ServerErrCode,
+    FieldType, ElementType, IndexType, InvertedIndexAnalyzer, InvertedIndexParseMode, MetricType, ServerErrCode,
     InvertedIndexFieldAttribute
 )
 from pymochow.model.enum import TableState, IndexState
@@ -102,6 +103,8 @@ class TestMochow:
         fields.append(Field("page", FieldType.UINT32))
         fields.append(Field("segment", FieldType.TEXT))
         fields.append(Field("vector", FieldType.FLOAT_VECTOR, not_null=True, dimension=4))
+        # 'element_type' must be set for ARRAY, 'max_capacity' is optional
+        fields.append(Field("arr_field", FieldType.ARRAY, element_type=ElementType.STRING, not_null=True))
         indexes = []
 
         if self._vector_index_type == IndexType.HNSW:
@@ -120,6 +123,7 @@ class TestMochow:
             raise Exception("not support index type")
 
         indexes.append(SecondaryIndex(index_name="book_name_idx", field="bookName"))
+        indexes.append(FilteringIndex(index_name="book_name_filtering_idx", fields=["bookName"]))
         indexes.append(InvertedIndex(index_name="book_segment_inverted_idx",
                                fields=["segment"],
                                params=InvertedIndexParams(analyzer=InvertedIndexAnalyzer.CHINESE_ANALYZER,
@@ -152,24 +156,28 @@ class TestMochow:
                 bookName='西游记',
                 author='吴承恩',
                 page=21,
+                arr_field=[],
                 segment='富贵功名，前缘分定，为人切莫欺心。'),
             Row(id='0002',
                 vector=[2, 0.22, 0.213, 0],
                 bookName='西游记',
                 author='吴承恩',
                 page=22,
+                arr_field=[],
                 segment='正大光明，忠良善果弥深。些些狂妄天加谴，眼前不遇待时临。'),
             Row(id='0003',
                 vector=[3, 0.23, 0.213, 0],
                 bookName='三国演义',
                 author='罗贯中',
                 page=23,
+                arr_field=["细作", "吕布"],
                 segment='细作探知这个消息，飞报吕布。'),
             Row(id='0004',
                 vector=[4, 0.24, 0.213, 0],
                 bookName='三国演义',
                 author='罗贯中',
                 page=24,
+                arr_field=["吕布", "陈宫", "刘玄德"],
                 segment='布大惊，与陈宫商议。宫曰：“闻刘玄德新领徐州，可往投之。”' \
                         '布从其言，竟投徐州来。有人报知玄德。'),
             Row(id='0005',
@@ -177,6 +185,7 @@ class TestMochow:
                 bookName='三国演义',
                 author='罗贯中',
                 page=25,
+                arr_field=["玄德", "糜竺", "吕布"],
                 segment='玄德曰：“布乃当今英勇之士，可出迎之。”' \
                 '糜竺曰：“吕布乃虎狼之徒，不可收留；收则伤人矣。'),
         ]
@@ -188,6 +197,7 @@ class TestMochow:
                 bookName='三国演义',
                 author='罗贯中',
                 page=25,
+                arr_field=["玄德", "糜竺", "吕布"],
                 segment='玄德曰：“布乃当今英勇之士，可出迎之。”' \
                 '糜竺曰：“吕布乃虎狼之徒，不可收留；收则伤人矣。'))
             i += 1

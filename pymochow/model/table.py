@@ -23,6 +23,7 @@ from pymochow.http import http_methods
 from pymochow.model.schema import (
     VectorIndex,
     SecondaryIndex,
+    FilteringIndex,
     HNSWParams,
     HNSWPQParams,
     PUCKParams,
@@ -1074,6 +1075,10 @@ class Table:
             return SecondaryIndex(
                 index_name=index["indexName"],
                 field=index["field"])
+        elif index["indexType"] == IndexType.FILTERING_INDEX.value:
+            return FilteringIndex.from_dict_list(
+                index_name=index["indexName"],
+                fields=index["fields"])
         elif index["indexType"] == IndexType.INVERTED_INDEX.value:
             return InvertedIndex(
                 index_name=index["indexName"],
