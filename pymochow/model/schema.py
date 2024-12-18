@@ -12,13 +12,14 @@
 """
 This module provide schema.
 """
-from typing import Dict, List
+from typing import Dict, List, Union
 from pymochow.model.enum import (
     IndexType,
     AutoBuildPolicyType,
     InvertedIndexAnalyzer,
     InvertedIndexParseMode,
-    InvertedIndexFieldAttribute
+    InvertedIndexFieldAttribute,
+    IndexStructureType
 )
 
 
@@ -383,7 +384,7 @@ class FilteringIndex(IndexField):
     def __init__(
             self,
             index_name: str,
-            fields: List[str]):
+            fields: Union[List[str], List[Dict[str, str]]]):
         """init
 
         FilteringIndex 用于在 create_table 时，为 'fields' 指定的列建立FILTERING索引。
@@ -401,11 +402,7 @@ class FilteringIndex(IndexField):
         """
         create FilteringIndex instance from dict list
         """
-        field_list = []
-        for field_dict in fields:
-            field = field_dict["field"]
-            field_list.append(field)
-        return cls(index_name, field_list)
+        return cls(index_name, fields)
 
     @classmethod
     def from_list(cls,
@@ -420,9 +417,13 @@ class FilteringIndex(IndexField):
         """to dict"""
         fields_dict_list = []
         for field in self._fields:
-            field_dict = {}
-            field_dict["field"] = field
-            fields_dict_list.append(field_dict)
+            if isinstance(field, str):
+                field_dict = {
+                    "field": field
+                }
+                fields_dict_list.append(field_dict)
+            elif isinstance(field, dict):
+                fields_dict_list.append(field)
         res = {
             "indexName": self.index_name,
             "indexType": self.index_type,

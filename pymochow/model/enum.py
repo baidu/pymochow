@@ -34,7 +34,7 @@ class IndexType(Enum):
     FLAT = "FLAT"
     PUCK = "PUCK"
     HNSWPQ = "HNSWPQ"
-    
+
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
     FILTERING_INDEX = "FILTERING"
@@ -129,6 +129,15 @@ class PartitionType(Enum):
     Partition Type
     """
     HASH = "HASH"
+
+
+@unique
+class IndexStructureType(Enum):
+    """
+    Index structure type
+    """
+    DEFAULT = "DEFAULT"
+    BITMAP = "BITMAP"
 
 
 @unique
