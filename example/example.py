@@ -45,6 +45,8 @@ from pymochow.model.table import (
     Partition,
     Row,
     FloatVector,
+    BinaryVector,
+    SparseFloatVector,
     BatchQueryKey,
     VectorSearchConfig,
     VectorTopkSearchRequest,
@@ -424,6 +426,117 @@ class TestMochow:
         db.drop_database()
         self._client.close()
 
+    def binary_vector_usage_example(self):
+        # convert num to it's binary representation, a list of 0 and 1
+        def num_to_binary_list(num, dimension):
+            binary_str = bin(num)[2:]
+            binary_list = [int(bit) for bit in binary_str]
+            if len(binary_list) > dimension:
+                binary_list = binary_list[:dimension]
+            elif len(binary_list) < dimension:
+                tmp = [0] * (dimension - len(binary_list))
+                tmp.extend(binary_list)
+                binary_list = tmp
+            assert(len(binary_list) == dimension)
+            return binary_list
+
+        # 1. create table
+        database = "test_binary_vec"
+        table_name = "test_binary_vec_tab"
+
+        db = None
+        try:
+            db = self._client.database(database)
+        except ClientError:
+            pass
+        if db is not None:
+            try:
+                db.drop_table(table_name)
+            except ServerError:
+                pass
+            time.sleep(10)
+            db.drop_database()
+
+        db = self._client.create_database(database)
+        vector_dimension = 128
+        fields = []
+        fields.append(Field("id", FieldType.STRING, primary_key=True,
+                      partition_key=True, auto_increment=False, not_null=True))
+        fields.append(Field("vector", FieldType.BINARY_VECTOR, not_null=True, dimension=vector_dimension))
+        db.create_table(table_name=table_name, replication=3, partition=Partition(
+            partition_num=1), schema=Schema(fields=fields))
+        while True:
+            time.sleep(2)
+            if db.describe_table(table_name).state == TableState.NORMAL:
+                break
+
+        # 2. insert to table
+        table = db.table(table_name)
+        rows = []
+        for num in range(50):
+            vec = BinaryVector.from_binary_list(num_to_binary_list(num, vector_dimension))
+            rows.append(Row(id=str(num), vector=vec))
+        table.upsert(rows=rows)
+
+        # 3. search binary vector
+        target = BinaryVector.from_binary_list(num_to_binary_list(123, vector_dimension))
+        request = VectorTopkSearchRequest(vector_field="vector", vector=target, limit=10)
+        res = table.vector_search(request=request)
+        logger.debug("res: {}".format(res))
+
+    def sparse_vector_usage_example(self):
+        # 1. create table
+        database = "test_sparse_vec"
+        table_name = "test_sparse_vec_tab"
+
+        db = None
+        try:
+            db = self._client.database(database)
+        except ClientError:
+            pass
+        if db is not None:
+            try:
+                db.drop_table(table_name)
+            except ServerError:
+                pass
+            time.sleep(10)
+            db.drop_database()
+
+        db = self._client.create_database(database)
+        fields = []
+        fields.append(Field("id", FieldType.STRING, primary_key=True,
+                            partition_key=True, auto_increment=False, not_null=True))
+        fields.append(Field("vector", FieldType.SPARSE_FLOAT_VECTOR, not_null=True))
+
+        indexes = []
+        indexes.append(VectorIndex(index_name="sparse_vector_idx",
+                                   index_type=IndexType.SPARSE_OPTIMIZED_FLAT,
+                                   field="vector",
+                                   metric_type=MetricType.IP))
+
+        db.create_table(table_name=table_name, replication=3,
+                        partition=Partition(partition_num=1),
+                        schema=Schema(fields=fields, indexes=indexes))
+        while True:
+            time.sleep(2)
+            if db.describe_table(table_name).state == TableState.NORMAL:
+                break
+
+        # 2. insert to table
+        rows = []
+        table = db.table(table_name)
+        for num in range(50):
+            vec = SparseFloatVector.from_dict({1: 0.56465, 100: 0.2366456, 10000: 0.543111})
+            rows.append(Row(id=str(num), vector=vec))
+        table.upsert(rows=rows)
+
+        # 3. search binary vector
+        target = SparseFloatVector.from_dict({1: 0.56465, 100: 0.2366456, 10000: 0.543111})
+        request = VectorTopkSearchRequest(vector_field="vector", vector=target, limit=10)
+        res = table.vector_search(request=request)
+        logger.debug("res: {}".format(res))
+
+
 if __name__ == "__main__":
     account = 'root'
     api_key = '********'
@@ -446,5 +559,7 @@ if __name__ == "__main__":
     test_vdb.update_data()
     test_vdb.delete_data()
     test_vdb.drop_and_create_vindex()
+    test_vdb.binary_vector_usage_example()
+    test_vdb.sparse_vector_usage_example()
     test_vdb.delete_and_drop()
 
