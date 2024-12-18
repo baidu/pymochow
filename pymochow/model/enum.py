@@ -34,6 +34,7 @@ class IndexType(Enum):
     FLAT = "FLAT"
     PUCK = "PUCK"
     HNSWPQ = "HNSWPQ"
+    SPARSE_OPTIMIZED_FLAT = "SPARSE_OPTIMIZED_FLAT"
 
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
@@ -93,6 +94,8 @@ class FieldType(Enum):
 
     # vector field type
     FLOAT_VECTOR = "FLOAT_VECTOR"
+    BINARY_VECTOR = "BINARY_VECTOR"
+    SPARSE_FLOAT_VECTOR = "SPARSE_FLOAT_VECTOR"
 
 
 @unique

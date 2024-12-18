@@ -12,6 +12,7 @@
 """
 This module provide schema.
 """
+import base64
 from typing import Dict, List, Union
 from pymochow.model.enum import (
     IndexType,

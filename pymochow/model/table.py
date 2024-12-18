@@ -16,6 +16,7 @@ This module provide table model.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Union, Tuple
 import copy
+import base64
 import orjson
 from pymochow import utils
 from pymochow import client
@@ -86,6 +87,115 @@ class Vector(ABC):
         pass
 
 
+class FloatVector(Vector):
+    """float vector"""
+
+    def __init__(self, floats: List[float]):
+        """init"""
+        self._floats = floats
+
+    def representation(self):
+        """representation"""
+        return self._floats
+
+
+class BinaryVector(Vector):
+    """binary vector"""
+
+    def __init__(self, base64_str: str):
+        """
+        base64_str is the binary vector encoded in BASE64
+        """
+        self._base64_str = base64_str
+
+    @classmethod
+    def from_binary_list(cls, binary_list):
+        '''construct from binary list, such as `[0,1,1,1]' '''
+
+        if len(binary_list) == 0:
+            raise RuntimeError("Empty list")
+
+        # Group the list into chunks of 8 bits
+        chunks = [binary_list[i:i+8] for i in range(0, len(binary_list), 8)]
+        last_chunk = chunks[-1]
+        if len(last_chunk) != 8:
+            # 补齐为 8 个 bit
+            last_chunk.extend([0] * (8 - len(last_chunk)))
+
+        # Convert each chunk to a byte and collect all bytes in a bytes object
+        bytes_value = bytearray(int(''.join(map(str, chunk)), 2) for chunk in chunks)
+
+        # Convert bytes to base64
+        base64_str = base64.b64encode(bytes_value).decode()
+
+        obj = cls.__new__(cls)
+        obj._base64_str = base64_str
+        return obj
+
+    def representation(self):
+        """representation"""
+        return self.to_base64()
+
+    def is_initialized(self):
+        return self._base64_str is not None
+
+    def to_binary_list(self):
+        if not self.is_initialized():
+            raise RuntimeError("BinaryVector is uninitialized")
+
+        # Decode base64 to bytes
+        bytes_value = base64.b64decode(self._base64_str)
+        # Convert bytes to binary and split into bits
+        binary_list = [int(bit) for byte in bytes_value for bit in bin(byte)[2:].zfill(8)]
+        return binary_list
+
+    def to_base64(self):
+        if not self.is_initialized():
+            raise RuntimeError("BinaryVector is uninitialized")
+
+        return self._base64_str
+
+
+class SparseFloatVector(Vector):
+    """sparse float vector"""
+
+    def __init__(self, sparse_vector: List[List]):
+        """
+        sparse_vector is a list of pair of (int, float), in the format of:
+        [
+          [1, 0.56465],
+          [100, 0.2366456],
+          [10000, 0.543111]
+        ]
+        """
+        self._sparse_vector = sparse_vector
+
+    @classmethod
+    def from_dict(cls, values: Dict[int, float]):
+        """
+        values is a dict containing each index and value of the sparse
+        vector, where the key is the index. In the format of:
+
+        {
+            1: 0.56465,
+            100: 0.2366456,
+            10000: 0.543111
+        }
+
+        """
+        sparse_vector = []
+        for idx, value in values.items():
+            sparse_vector.append([idx, value])
+
+        obj = cls.__new__(cls)
+        obj._sparse_vector = sparse_vector
+        return obj
+
+    def representation(self):
+        """representation"""
+        return self._sparse_vector
+
+
 class BatchQueryKey:
     '''BatchQueryKey'''
 
@@ -101,18 +211,6 @@ class BatchQueryKey:
         if self._partition_key is not None:
             res['partitionKey'] = self._partition_key
         return res
-
-
-class FloatVector(Vector):
-    """float vector"""
-
-    def __init__(self, floats: List[float]):
-        """init"""
-        self._floats = floats
-
-    def representation(self):
-        """representation"""
-        return self._floats
 
 
 class VectorSearchConfig:
@@ -196,8 +294,12 @@ class VectorTopkSearchRequest(SearchRequest):
 
         anns = {
             "vectorField": self._vector_field,
-            "vectorFloats": self._vector.representation(),
         }
+
+        if isinstance(self._vector, FloatVector):
+            anns["vectorFloats"] = self._vector.representation()
+        else:
+            anns["vector"] = self._vector.representation()
 
         if self._filter is not None:
             anns["filter"] = self._filter
@@ -253,8 +355,12 @@ class VectorRangeSearchRequest(SearchRequest):
 
         anns = {
             "vectorField": self._vector_field,
-            "vectorFloats": self._vector.representation(),
         }
+
+        if isinstance(self._vector, FloatVector):
+            anns["vectorFloats"] = self._vector.representation()
+        else:
+            anns["vector"] = self._vector.representation()
 
         if self._filter is not None:
             anns["filter"] = self._filter
@@ -1116,7 +1222,13 @@ class Row:
     """
 
     def __init__(self, **kwargs) -> None:
-        self._data = kwargs
+        self._data = dict()
+
+        for k, v in kwargs.items():
+            if isinstance(v, Vector):
+                self._data[k] = v.representation()
+            else:
+                self._data[k] = v
 
     def to_dict(self):
         """to dict"""
