@@ -984,7 +984,7 @@ class Table:
         - `total_size`: Total number of results returned by iterator.
 
         """
-        return SearchIterator(table=self, rqeust=request, batch_size=batch_size,
+        return SearchIterator(table=self, request=request, batch_size=batch_size,
                               total_size=total_size,
                               partition_key=partition_key,
                               projections=projections,
