@@ -18,7 +18,7 @@ from builtins import bytes
 from . import protocol
 from .client.mochow_client import MochowClient
 
-SDK_VERSION = b'2.2.9'
+SDK_VERSION = b'2.3.1'
 URL_PREFIX = b'/v1'
 DEFAULT_ENCODING = 'UTF-8'
 
