@@ -27,7 +27,6 @@ from pymochow.model.schema import (
     FilteringIndex,
     HNSWParams,
     HNSWPQParams,
-    HNSWSQParams,
     PUCKParams,
     DISKANNParams,
     IVFParams,
@@ -245,14 +244,12 @@ class VectorSearchConfig:
     | IndexType | Params              |
     |-----------+---------------------|
     | HNSW      | ef, pruning         |
-    | HNSWPQ    | ef                  |
+    | HNSWPQ    | ef, pruning         |
     | PUCK      | search_coarse_count |
     | IVF       | nprobe              |
     | IVFSQ     | nprobe              |
     | FLAT      |                     |
     | DISKANN   | w, search_l         |
-    | HNSWSQ    | ef                  |
-
     """
 
     def __init__(self, *,
@@ -692,6 +689,7 @@ class Table:
             schema,
             enable_dynamic_field=False,
             description='',
+            ttl=0,
             config=None,
             **kwargs):
         self._conn = db.conn
@@ -702,6 +700,7 @@ class Table:
         self._schema = schema
         self._enable_dynamic_field = enable_dynamic_field
         self._description = description
+        self._ttl = ttl
         self._config = config
         self._create_time = kwargs.get('create_time', '')
         self._state = kwargs.get('state', None)
@@ -746,6 +745,11 @@ class Table:
     def description(self):
         """description"""
         return self._description
+
+    @property
+    def ttl(self):
+        """time to live in seconds, 0 means no expiration"""
+        return self._ttl
 
     @property
     def create_time(self):
@@ -1373,18 +1377,6 @@ class Table:
                 metric_type=getattr(MetricType, index["metricType"], None),
                 params=DISKANNParams(NSQ=index["params"]["NSQ"],
                         R=index["params"]["R"],L=index["params"]["L"]),
-                auto_build=index["autoBuild"],
-                auto_build_index_policy=auto_build_index_policy,
-                state=getattr(IndexState, index["state"], None))
-        elif index["indexType"] == IndexType.HNSWSQ.value:
-            return VectorIndex(
-                index_name=index["indexName"],
-                index_type=IndexType.HNSWSQ,
-                field=index["field"],
-                metric_type=getattr(MetricType, index["metricType"], None),
-                params=HNSWSQParams(m=index["params"]["M"],
-                    efconstruction=index["params"]["efConstruction"],
-                    qtBits=index["params"]["qtBits"]),
                 auto_build=index["autoBuild"],
                 auto_build_index_policy=auto_build_index_policy,
                 state=getattr(IndexState, index["state"], None))
