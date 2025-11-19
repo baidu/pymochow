@@ -140,7 +140,8 @@ class Database:
         return res
 
     def create_table(self, table_name, replication, partition, schema,
-            enable_dynamic_field=False, description=None, datanode_memory_reserved_in_gb=0, config=None) -> Table:
+            enable_dynamic_field=False, description=None,
+            datanode_memory_reserved_in_gb=0, ttl=0, config=None) -> Table:
         """create table
         Args:
             table_name(str): table name
@@ -150,6 +151,7 @@ class Database:
             enable_dynamic_field(boolean): enable dynamic add field
             description(Optional[str]): table description
             datanode_memory_reserved_in_gb(Optianl[float]): datanode memory reserved
+            ttl(Optional[int]): time to live in seconds, 0 means no expiration (default: 0)
             config(Optional[Configuration]): client configuration
         Return:
             Table: table
@@ -180,6 +182,9 @@ class Database:
         if datanode_memory_reserved_in_gb > 0:
             body["datanodeMemoryReservedInGB"] = datanode_memory_reserved_in_gb
 
+        if ttl > 0:
+            body["ttl"] = ttl
+
         json_body = orjson.dumps(body)
 
         config = self._merge_config(config)
@@ -199,6 +204,7 @@ class Database:
         return Table(self, table_name, replication, partition, schema,
                 enable_dynamic_field=enable_dynamic_field,
                 description=description,
+                ttl=ttl,
                 config=self._config)
 
     def modify_table(self, table_name, datanode_memory_reserved_in_gb=0, config=None):
@@ -445,6 +451,7 @@ class Database:
                     if "enableDynamicField" in table else False
                 ),
                 description=table["description"],
+                ttl=table.get("ttl", 0),
                 config=self._config,
                 create_time=table["createTime"],
                 state=getattr(TableState, table["state"], None),
@@ -479,3 +486,4 @@ class Database:
         for table_name in response.tables:
             res.append(self.table(table_name, config))
         return res
+

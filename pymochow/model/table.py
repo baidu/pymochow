@@ -692,6 +692,7 @@ class Table:
             schema,
             enable_dynamic_field=False,
             description='',
+            ttl=0,
             config=None,
             **kwargs):
         self._conn = db.conn
@@ -702,6 +703,7 @@ class Table:
         self._schema = schema
         self._enable_dynamic_field = enable_dynamic_field
         self._description = description
+        self._ttl = ttl
         self._config = config
         self._create_time = kwargs.get('create_time', '')
         self._state = kwargs.get('state', None)
@@ -746,6 +748,11 @@ class Table:
     def description(self):
         """description"""
         return self._description
+
+    @property
+    def ttl(self):
+        """time to live in seconds, 0 means no expiration"""
+        return self._ttl
 
     @property
     def create_time(self):
