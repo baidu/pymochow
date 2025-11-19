@@ -785,6 +785,8 @@ class Table:
             res["createTime"] = self.create_time
         if self.state is not None:
             res["state"] = self.state
+        if self._ttl > 0:
+            res["ttl"] = self._ttl
         return res
 
     def _merge_config(self, config):
