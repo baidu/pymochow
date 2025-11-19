@@ -30,6 +30,7 @@ from pymochow.model.schema import (
     FilteringIndex,
     HNSWParams,
     HNSWPQParams,
+    HNSWSQParams,
     PUCKParams,
     DISKANNParams,
     IVFParams,
@@ -388,6 +389,17 @@ class Database:
                     field=index["field"],
                     metric_type=getattr(MetricType, index["metricType"], None),
                     params=IVFSQParams(nlist=index["params"]["nlist"],
+                        qtBits=index["params"]["qtBits"]),
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
+            elif index["indexType"] == IndexType.HNSWSQ.value:
+                indexes.append(VectorIndex(
+                    index_name=index["indexName"],
+                    index_type=IndexType.HNSWSQ,
+                    field=index["field"],
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    params=HNSWSQParams(m=index["params"]["M"],
+                        efconstruction=index["params"]["efConstruction"],
                         qtBits=index["params"]["qtBits"]),
                     auto_build=index["autoBuild"],
                     auto_build_index_policy=auto_build_index_policy))

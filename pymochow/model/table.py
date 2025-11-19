@@ -27,6 +27,7 @@ from pymochow.model.schema import (
     FilteringIndex,
     HNSWParams,
     HNSWPQParams,
+    HNSWSQParams,
     PUCKParams,
     DISKANNParams,
     IVFParams,
@@ -244,12 +245,14 @@ class VectorSearchConfig:
     | IndexType | Params              |
     |-----------+---------------------|
     | HNSW      | ef, pruning         |
-    | HNSWPQ    | ef, pruning         |
+    | HNSWPQ    | ef                  |
     | PUCK      | search_coarse_count |
     | IVF       | nprobe              |
     | IVFSQ     | nprobe              |
     | FLAT      |                     |
     | DISKANN   | w, search_l         |
+    | HNSWSQ    | ef                  |
+
     """
 
     def __init__(self, *,
@@ -1377,6 +1380,18 @@ class Table:
                 metric_type=getattr(MetricType, index["metricType"], None),
                 params=DISKANNParams(NSQ=index["params"]["NSQ"],
                         R=index["params"]["R"],L=index["params"]["L"]),
+                auto_build=index["autoBuild"],
+                auto_build_index_policy=auto_build_index_policy,
+                state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.HNSWSQ.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.HNSWSQ,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                params=HNSWSQParams(m=index["params"]["M"],
+                    efconstruction=index["params"]["efConstruction"],
+                    qtBits=index["params"]["qtBits"]),
                 auto_build=index["autoBuild"],
                 auto_build_index_policy=auto_build_index_policy,
                 state=getattr(IndexState, index["state"], None))
