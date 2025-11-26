@@ -1215,7 +1215,9 @@ class Table:
         body["indexes"] = []
 
         for index in indexes:
-            if isinstance(index, VectorIndex):
+            if isinstance(index, VectorIndex) or \
+               isinstance(index, SecondaryIndex) or \
+               isinstance(index, FilteringIndex):
                 body["indexes"].append(index.to_dict())
             else:
                 raise ClientError("not supported index type")
