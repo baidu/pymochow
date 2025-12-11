@@ -695,6 +695,18 @@ class TestMochow:
         res = table.vector_search(request=request)
         logger.debug("res: {}".format(res))
 
+    def alias_and_unalias(self):
+        """alias and unalias"""
+        db = self._client.database('book')
+        table = db.table('book_segments')
+        table_alias = 'book_segments_alias'
+        table.alias(table_alias)
+        table = db.table('book_segments')
+        logger.debug("table {}".format(table.to_dict()))
+        table.unalias(table_alias)
+        table = db.table('book_segments')
+        logger.debug("table {}".format(table.to_dict()))
+
 
 if __name__ == "__main__":
     account = 'root'
@@ -721,5 +733,6 @@ if __name__ == "__main__":
     test_vdb.drop_and_create_vindex()
     test_vdb.binary_vector_usage_example()
     test_vdb.sparse_vector_usage_example()
+    test_vdb.alias_and_unalias()
     test_vdb.delete_and_drop()
 
