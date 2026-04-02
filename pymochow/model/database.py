@@ -26,6 +26,8 @@ from pymochow.model.schema import (
     Schema,
     Field,
     VectorIndex,
+    PersistentBitmapIndex,
+    PersistentAggregatedBitmapIndex,
     SecondaryIndex,
     FilteringIndex,
     HNSWParams,
@@ -441,6 +443,10 @@ class Database:
                     fields=index["fields"],
                     params=InvertedIndexParams(analyzer=getattr(InvertedIndexAnalyzer, index["params"]["analyzer"], None),
                                         parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None))))
+            elif index["indexType"] == IndexType.PERSISTENT_BITMAP_INDEX.value:
+                indexes.append(PersistentBitmapIndex(index["indexName"], index["fields"][0]["field"]))
+            elif index["indexType"] == IndexType.PERSISTENT_AGGREGATED_BITMAP_INDEX.value:
+                indexes.append(PersistentAggregatedBitmapIndex(index["indexName"], index["fields"][0]["field"]))
             else:
                 raise ClientError("not supported index type:%s" % (index["indexType"]))
 

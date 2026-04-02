@@ -526,6 +526,43 @@ class FilteringIndex(IndexField):
         return res
 
 
+class PersistentBitmapIndex(IndexField):
+    """PersistentBitmapIndex"""
+
+    def __init__(
+            self,
+            index_name,
+            field):
+        super().__init__(index_name=index_name, index_type=IndexType.PERSISTENT_BITMAP_INDEX,
+                field=field)
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "indexName": self.index_name,
+            "indexType": self.index_type,
+            "field": self.field
+        }
+        return res
+
+
+class PersistentAggregatedBitmapIndex(IndexField):
+    """PersistentAggregatedBitmapIndex"""
+
+    def __init__(self, index_name, field):
+        super().__init__(index_name=index_name, index_type=IndexType.PERSISTENT_AGGREGATED_BITMAP_INDEX,
+                field=field)
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "indexName": self.index_name,
+            "indexType": self.index_type,
+            "field": self.field
+        }
+        return res
+
+
 class InvertedIndexParams:
     """
     inverted index params.
