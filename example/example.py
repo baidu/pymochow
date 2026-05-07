@@ -52,6 +52,7 @@ from pymochow.model.table import (
     BinaryVector,
     SparseFloatVector,
     BatchQueryKey,
+    AdvancedOptions,
     VectorSearchConfig,
     VectorTopkSearchRequest,
     VectorRangeSearchRequest,
@@ -491,6 +492,63 @@ class TestMochow:
 
         logger.debug("hybrid search res: {}".format(res))
 
+    def two_phase_retrieval_search(self):
+        """demonstrate two-phase retrieval for vector search and hybrid search
+
+        Two-phase retrieval reduces IO and network transfer when projection is large
+        and shard count is high:
+          Phase 1 - fetch primary keys only from each shard, merge global TopK.
+          Phase 2 - fetch full rows for TopK primary keys only.
+
+        Constraints:
+          - Not supported for MultiVectorSearch.
+          - Not compatible with decay configuration.
+        """
+        db = self._client.database('book')
+        table = db.table('book_segments')
+
+        if self._vector_index_type == IndexType.HNSW:
+            config = VectorSearchConfig(ef=200, pruning=True)
+        elif self._vector_index_type == IndexType.HNSWPQ:
+            config = VectorSearchConfig(ef=200)
+        elif self._vector_index_type == IndexType.PUCK:
+            config = VectorSearchConfig(search_coarse_count=5)
+        elif self._vector_index_type == IndexType.DISKANN:
+            config = VectorSearchConfig(w=1, search_l=100)
+        elif self._vector_index_type == IndexType.HNSWSQ:
+            config = VectorSearchConfig(ef=200)
+
+        advanced_options = AdvancedOptions(two_phase_retrieval=True)
+
+        request = VectorTopkSearchRequest(
+            vector_field="vector",
+            vector=FloatVector([1, 0.21, 0.213, 0]),
+            limit=10,
+            filter="bookName='三国演义'",
+            config=config,
+            advanced_options=advanced_options)
+        res = table.vector_search(request=request)
+        logger.debug("two-phase retrieval TopK search res: {}".format(res))
+
+        vector_request = VectorTopkSearchRequest(
+            vector_field="vector",
+            vector=FloatVector([1, 0.21, 0.213, 0]),
+            limit=10,
+            config=config)
+        bm25_request = BM25SearchRequest(
+            index_name="book_segment_inverted_idx",
+            search_text="吕布")
+        hybrid_request = HybridSearchRequest(
+            vector_request=vector_request,
+            vector_weight=0.4,
+            bm25_request=bm25_request,
+            bm25_weight=0.6,
+            filter="bookName='三国演义'",
+            limit=15,
+            advanced_options=advanced_options)
+        res = table.hybrid_search(request=hybrid_request)
+        logger.debug("two-phase retrieval hybrid search res: {}".format(res))
+
     def select_data(self):
         """select data"""
         db = self._client.database('book')
@@ -728,6 +786,7 @@ if __name__ == "__main__":
     test_vdb.search_iterator()
     test_vdb.bm25_search()
     test_vdb.hybrid_search()
+    test_vdb.two_phase_retrieval_search()
     test_vdb.update_data()
     test_vdb.delete_data()
     test_vdb.drop_and_create_vindex()
