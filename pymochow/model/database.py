@@ -448,7 +448,7 @@ class Database:
             elif index["indexType"] == IndexType.PERSISTENT_AGGREGATED_BITMAP_INDEX.value:
                 indexes.append(PersistentAggregatedBitmapIndex(index["indexName"], index["fields"][0]["field"]))
             else:
-                raise ClientError("not supported index type:%s" % (index["indexType"]))
+                _logger.debug("skip unsupported index type:%s" % (index["indexType"]))
 
         schema = Schema(fields=fields, indexes=indexes)
         return Table(self, table_name, table["replication"], partition, schema,

@@ -223,16 +223,30 @@ class AdvancedOptions:
 
     def __init__(self,
                  accept_partial_success_on_mpp: bool = False,
-                 success_rate_lower_bound_on_mpp: float = 1.0):
-        """init"""
+                 success_rate_lower_bound_on_mpp: float = 1.0,
+                 two_phase_retrieval: bool = None):
+        """init
+
+        Args:
+            accept_partial_success_on_mpp: whether to accept partial success on MPP
+            success_rate_lower_bound_on_mpp: minimum success rate required on MPP
+            two_phase_retrieval: enable two-phase retrieval to reduce IO when projection
+                is large and shard count is high. Phase 1 fetches only primary keys for
+                global TopK merging; Phase 2 fetches full rows for TopK results only.
+                Not compatible with decay configuration.
+                Not supported for MultiVectorSearch.
+        """
         self._accept_partial_success_on_mpp = accept_partial_success_on_mpp
         self._success_rate_lower_bound_on_mpp = success_rate_lower_bound_on_mpp
+        self._two_phase_retrieval = two_phase_retrieval
 
     def to_dict(self):
         """to_dict"""
         res = {}
         res['acceptPartialSuccessOnMPP'] = self._accept_partial_success_on_mpp
         res['successRateLowerBoundOnMPP'] = self._success_rate_lower_bound_on_mpp
+        if self._two_phase_retrieval is not None:
+            res['twoPhaseRetrieval'] = self._two_phase_retrieval
         return res
 
 
@@ -637,7 +651,8 @@ class HybridSearchRequest(SearchRequest):
                  vector_weight: float = 0.5,
                  bm25_weight: float = 0.5,
                  limit: int = None,
-                 filter: str = None):
+                 filter: str = None,
+                 advanced_options: AdvancedOptions = None):
         """
         init
 
@@ -655,6 +670,7 @@ class HybridSearchRequest(SearchRequest):
         self._bm25_weight = bm25_weight
         self._limit = limit
         self._filter = filter
+        self._advanced_options = advanced_options
 
     def to_dict(self):
         """to_dict"""
@@ -671,6 +687,8 @@ class HybridSearchRequest(SearchRequest):
             res["limit"] = self._limit
         if self._filter is not None:
             res["filter"] = self._filter
+        if self._advanced_options is not None:
+            res["advancedOptions"] = self._advanced_options.to_dict()
 
         return res
 
