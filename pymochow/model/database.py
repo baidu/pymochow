@@ -37,13 +37,17 @@ from pymochow.model.schema import (
     DISKANNParams,
     IVFParams,
     IVFSQParams,
+    IVFRABITQParams,
+    HNSWRABITQParams,
+    IVFPQParams,
     AutoBuildTool,
     InvertedIndex,
     InvertedIndexParams,
     InvertedIndexAnalyzer,
     InvertedIndexParseMode
 )
-from pymochow.model.enum import IndexType, MetricType, TableState, RequestType
+from pymochow.model.enum import (
+    IndexType, IndexState, MetricType, TableState, RequestType)
 
 _logger = logging.getLogger(__name__)
 
@@ -394,6 +398,25 @@ class Database:
                         qtBits=index["params"]["qtBits"]),
                     auto_build=index["autoBuild"],
                     auto_build_index_policy=auto_build_index_policy))
+            elif index["indexType"] == IndexType.IVFRABITQ.value:
+                indexes.append(VectorIndex(
+                    index_name=index["indexName"],
+                    index_type=IndexType.IVFRABITQ,
+                    field=index["field"],
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    params=IVFRABITQParams(nlist=index["params"]["nlist"]),
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
+            elif index["indexType"] == IndexType.IVFPQ.value:
+                indexes.append(VectorIndex(
+                    index_name=index["indexName"],
+                    index_type=IndexType.IVFPQ,
+                    field=index["field"],
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    params=IVFPQParams(nlist=index["params"]["nlist"],
+                        NSQ=index["params"]["NSQ"]),
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.HNSWSQ.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
@@ -403,6 +426,16 @@ class Database:
                     params=HNSWSQParams(m=index["params"]["M"],
                         efconstruction=index["params"]["efConstruction"],
                         qtBits=index["params"]["qtBits"]),
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
+            elif index["indexType"] == IndexType.HNSWRABITQ.value:
+                indexes.append(VectorIndex(
+                    index_name=index["indexName"],
+                    index_type=IndexType.HNSWRABITQ,
+                    field=index["field"],
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    params=HNSWRABITQParams(m=index["params"]["M"],
+                        efconstruction=index["params"]["efConstruction"]),
                     auto_build=index["autoBuild"],
                     auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.FLAT.value:
@@ -418,7 +451,9 @@ class Database:
                     index_name=index["indexName"],
                     index_type=IndexType.SPARSE_OPTIMIZED_FLAT,
                     field=index["field"],
-                    metric_type=getattr(MetricType, index["metricType"], None)))
+                    metric_type=getattr(MetricType, index["metricType"], None),
+                    auto_build=index["autoBuild"],
+                    auto_build_index_policy=auto_build_index_policy))
             elif index["indexType"] == IndexType.PUCK.value:
                 indexes.append(VectorIndex(
                     index_name=index["indexName"],
@@ -442,11 +477,17 @@ class Database:
                     index_name=index["indexName"],
                     fields=index["fields"],
                     params=InvertedIndexParams(analyzer=getattr(InvertedIndexAnalyzer, index["params"]["analyzer"], None),
-                                        parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None))))
+                                        parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None)),
+                    state=getattr(IndexState, index.get("state"), None)))
             elif index["indexType"] == IndexType.PERSISTENT_BITMAP_INDEX.value:
-                indexes.append(PersistentBitmapIndex(index["indexName"], index["fields"][0]["field"]))
+                indexes.append(PersistentBitmapIndex(
+                    index["indexName"], index["fields"][0]["field"]))
             elif index["indexType"] == IndexType.PERSISTENT_AGGREGATED_BITMAP_INDEX.value:
-                indexes.append(PersistentAggregatedBitmapIndex(index["indexName"], index["fields"][0]["field"]))
+                indexes.append(PersistentAggregatedBitmapIndex(
+                    index["indexName"],
+                    index["fields"][0]["field"],
+                    index.get("fanoutBits"),
+                    index.get("maxDepth")))
             else:
                 _logger.debug("skip unsupported index type:%s" % (index["indexType"]))
 
@@ -492,4 +533,3 @@ class Database:
         for table_name in response.tables:
             res.append(self.table(table_name, config))
         return res
-

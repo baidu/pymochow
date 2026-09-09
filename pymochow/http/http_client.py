@@ -160,6 +160,8 @@ class HTTPClient:
 
         if config.request_timeout_ms is not None:
             headers[http_headers.REQUEST_TIMEOUT_MS] = str(config.request_timeout_ms)
+        if config.get_request_id() != '':
+            headers[http_headers.REQUEST_ID] = config.get_request_id()
 
         request_endpoint = config.endpoint
 
