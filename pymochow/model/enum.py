@@ -39,6 +39,9 @@ class IndexType(Enum):
     IVF = "IVF"
     IVFSQ = "IVFSQ"
     HNSWSQ = "HNSWSQ"
+    IVFPQ = "IVFPQ"
+    HNSWRABITQ = "HNSWRABITQ"
+    IVFRABITQ = "IVFRABITQ"
 
     # scalar index type
     SECONDARY_INDEX = "SECONDARY"
@@ -63,6 +66,13 @@ class InvertedIndexParseMode(Enum):
     """parse mode"""
     COARSE_MODE = "COARSE_MODE"
     FINE_MODE = "FINE_MODE"
+
+
+@unique
+class StopWordsMode(Enum):
+    DEFAULT = "DEFAULT"
+    CUSTOM = "CUSTOM"
+    NONE = "NONE"
 
 
 @unique
@@ -209,6 +219,16 @@ class IndexStructureType(Enum):
     """
     DEFAULT = "DEFAULT"
     BITMAP = "BITMAP"
+    AGGREGATED_BITMAP = "AGGREGATED_BITMAP"
+
+
+@unique
+class VectorIndexMembershipState(Enum):
+    ROW_NOT_FOUND = "ROW_NOT_FOUND"
+    NO_VECTOR = "NO_VECTOR"
+    KNN = "KNN"
+    DELTA_INDEX = "DELTA_INDEX"
+    STABLE_INDEX = "STABLE_INDEX"
 
 
 @unique
@@ -391,4 +411,3 @@ class FilterMode(Enum):
     """
     AUTO = "AUTO"
     POST = "POST"
-

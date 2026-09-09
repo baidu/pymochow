@@ -91,6 +91,18 @@ class Configuration(object):
                 if v is not None:
                     self.__dict__[k] = v
 
+    def get_request_id(self):
+        """
+        获取配置中的 request_id。
+        
+        如果 __dict__ 中有 request_id 属性，则返回对应的值；
+        如果没有 request_id 属性，则返回空字符串。
+        
+        Returns:
+            str: request_id 值或空字符串
+        """
+        return self.__dict__.get('request_id', '')
+
 
 DEFAULT_PROTOCOL = pymochow.protocol.HTTP
 DEFAULT_CONNECTION_TIMEOUT_IN_MILLIS = 50 * 1000
