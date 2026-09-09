@@ -382,6 +382,54 @@ class IVFSQParams:
         return res
 
 
+class HNSWRABITQParams:
+    """
+    The hnsw rabitq vector index params.
+    """
+
+    def __init__(self, m: int, efconstruction: int) -> None:
+        self.m = m
+        self.ef_construction = efconstruction
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "M": self.m,
+            "efConstruction": self.ef_construction
+        }
+        return res
+
+
+class IVFRABITQParams:
+    """The ivf rabitq vector index params."""
+
+    def __init__(self, nlist: int):
+        """Initialize IVF RaBitQ parameters."""
+        self.nlist = nlist
+
+    def to_dict(self):
+        """Serialize IVF RaBitQ parameters."""
+        return {"nlist": self.nlist}
+
+
+class IVFPQParams:
+    """
+    The ivfpq vector index params.
+    """
+
+    def __init__(self, nlist: int, NSQ: int) -> None:
+        self.nlist = nlist
+        self.NSQ = NSQ
+
+    def to_dict(self):
+        """to dict"""
+        res = {
+            "nlist": self.nlist,
+            "NSQ": self.NSQ
+        }
+        return res
+
+
 class VectorIndex(IndexField):
     """
     Args:
@@ -400,6 +448,7 @@ class VectorIndex(IndexField):
             params=None,
             auto_build=False,
             auto_build_index_policy=None,
+            truncation_dimension=None,
             **kwargs):
         super().__init__(index_name=index_name, index_type=index_type, field=field)
         self._metric_type = metric_type
@@ -410,6 +459,7 @@ class VectorIndex(IndexField):
         else:
             self._auto_build_index_policy = None
         self._state = kwargs.get('state', None)
+        self._truncation_dimension = truncation_dimension
 
     @property
     def metric_type(self):
@@ -448,6 +498,8 @@ class VectorIndex(IndexField):
             res["params"] = self.params.to_dict()
         if self.state is not None:
             res["state"] = self.state
+        if self._truncation_dimension is not None:
+            res["truncationDimension"] = self._truncation_dimension
         if self.auto_build_index_policy is not None:
             res["autoBuildPolicy"] = self.auto_build_index_policy.to_dict()
         return res
@@ -549,9 +601,11 @@ class PersistentBitmapIndex(IndexField):
 class PersistentAggregatedBitmapIndex(IndexField):
     """PersistentAggregatedBitmapIndex"""
 
-    def __init__(self, index_name, field):
+    def __init__(self, index_name, field, fanout_bits=None, max_depth=None):
         super().__init__(index_name=index_name, index_type=IndexType.PERSISTENT_AGGREGATED_BITMAP_INDEX,
                 field=field)
+        self._fanout_bits = fanout_bits
+        self._max_depth = max_depth
 
     def to_dict(self):
         """to dict"""
@@ -560,6 +614,10 @@ class PersistentAggregatedBitmapIndex(IndexField):
             "indexType": self.index_type,
             "field": self.field
         }
+        if self._fanout_bits is not None:
+            res["fanoutBits"] = self._fanout_bits
+        if self._max_depth is not None:
+            res["maxDepth"] = self._max_depth
         return res
 
 
@@ -572,7 +630,8 @@ class InvertedIndexParams:
             self,
             analyzer: InvertedIndexAnalyzer = None,
             parse_mode: InvertedIndexParseMode = None,
-            case_sensitive: bool = True):
+            case_sensitive: bool = True,
+            stop_words=None):
         """init"""
         self._params = {}
         if analyzer is not None:
@@ -581,10 +640,30 @@ class InvertedIndexParams:
             self._params["parseMode"] = parse_mode
 
         self._params["analyzerCaseSensitive"] = case_sensitive
+        if stop_words is not None:
+            self._params["stopWords"] = (
+                stop_words.to_dict()
+                if hasattr(stop_words, "to_dict") else stop_words)
 
     def to_dict(self) -> Dict[str, str]:
         """to dict"""
         return self._params
+
+
+class StopWordsParams:
+    """Stop-word table configuration for an inverted index."""
+
+    def __init__(self, mode, words=None):
+        """Initialize stop-word mode and optional custom words."""
+        self.mode = mode
+        self.words = words
+
+    def to_dict(self):
+        """Serialize stop-word configuration."""
+        result = {"mode": self.mode}
+        if self.words is not None:
+            result["words"] = self.words
+        return result
 
 
 class InvertedIndex(IndexField):
@@ -594,7 +673,8 @@ class InvertedIndex(IndexField):
             index_name: str,
             fields: List[str],
             params: InvertedIndexParams,
-            field_attributes: List[InvertedIndexFieldAttribute] = []):
+            field_attributes: List[InvertedIndexFieldAttribute] = [],
+            state=None):
         """init
 
         InvertedIndex 用于在 create_table 时，为 'fields' 指定的列建立
@@ -610,6 +690,12 @@ class InvertedIndex(IndexField):
         self._fields = fields
         self._field_attributes = field_attributes
         self._params = params
+        self._state = state
+
+    @property
+    def state(self):
+        """Return the inverted index state."""
+        return self._state
 
     def to_dict(self):
         """to dict"""

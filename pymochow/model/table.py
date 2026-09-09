@@ -28,10 +28,13 @@ from pymochow.model.schema import (
     HNSWParams,
     HNSWPQParams,
     HNSWSQParams,
+    HNSWRABITQParams,
     PUCKParams,
     DISKANNParams,
     IVFParams,
     IVFSQParams,
+    IVFRABITQParams,
+    IVFPQParams,
     DefaultAutoBuildPolicy,
     AutoBuildTool,
     InvertedIndex,
@@ -39,6 +42,8 @@ from pymochow.model.schema import (
     InvertedIndexAnalyzer,
     InvertedIndexParseMode,
     FusionRankPolicy,
+    PersistentBitmapIndex,
+    PersistentAggregatedBitmapIndex,
 )
 from pymochow.model.enum import (PartitionType, ReadConsistency,
     IndexType, IndexState, MetricType, AutoBuildPolicyType, RequestType, FilterMode)
@@ -266,6 +271,8 @@ class VectorSearchConfig:
     | FLAT      |                     |
     | DISKANN   | w, search_l         |
     | HNSWSQ    | ef                  |
+    | IVFPQ     | nprobe              |
+    | HNSWRABITQ| ef                  |
 
     """
 
@@ -321,6 +328,78 @@ class SearchRequest(ABC):
     def type(self) -> RequestType:
         """type"""
         pass
+
+
+class HighlightField:
+    """Highlight options for one text field."""
+
+    def __init__(self, fragment_size=None, number_of_fragments=None):
+        self.fragment_size = fragment_size
+        self.number_of_fragments = number_of_fragments
+
+    def to_dict(self):
+        result = {}
+        if self.fragment_size is not None:
+            result["fragmentSize"] = self.fragment_size
+        if self.number_of_fragments is not None:
+            result["numberOfFragments"] = self.number_of_fragments
+        return result
+
+
+class Highlight:
+    """Full-text highlight configuration."""
+
+    def __init__(self, fields=None, pre_tags=None, post_tags=None):
+        self.fields = fields or {}
+        self.pre_tags = pre_tags
+        self.post_tags = post_tags
+
+    def to_dict(self):
+        result = {"fields": {
+            name: value.to_dict() if isinstance(value, HighlightField) else value
+            for name, value in self.fields.items()
+        }}
+        if self.pre_tags is not None:
+            result["preTags"] = self.pre_tags
+        if self.post_tags is not None:
+            result["postTags"] = self.post_tags
+        return result
+
+
+class DecayRanker:
+    """Decay ranker configuration."""
+
+    def __init__(self, decay_type, field, origin, scale, name=None,
+                 decay_rate=None, offset=None, reverse=None, weight=None,
+                 min_score=None, max_score=None):
+        self.decay_type = decay_type
+        self.field = field
+        self.origin = origin
+        self.scale = scale
+        self.name = name
+        self.decay_rate = decay_rate
+        self.offset = offset
+        self.reverse = reverse
+        self.weight = weight
+        self.min_score = min_score
+        self.max_score = max_score
+
+    def to_dict(self):
+        result = {
+            "type": self.decay_type,
+            "fieldName": self.field,
+            "origin": self.origin,
+            "scale": self.scale,
+        }
+        optional = {
+            "name": self.name, "decayRate": self.decay_rate,
+            "offset": self.offset, "reverse": self.reverse,
+            "weight": self.weight, "minScore": self.min_score,
+            "maxScore": self.max_score,
+        }
+        result.update({key: value for key, value in optional.items()
+                       if value is not None})
+        return result
 
 
 class VectorTopkSearchRequest(SearchRequest):
@@ -611,12 +690,18 @@ class BM25SearchRequest(SearchRequest):
                  index_name: str,
                  search_text: str,
                  limit: int = None,
-                 filter: str = None):
+                 filter: str = None,
+                 synonyms=None,
+                 highlight: Highlight = None,
+                 decay=None):
         """init"""
         self._index_name = index_name
         self._search_text = search_text
         self._limit = limit
         self._filter = filter
+        self._synonyms = synonyms
+        self._highlight = highlight
+        self._decay = decay
 
     def to_dict(self):
         """to_dict"""
@@ -626,12 +711,18 @@ class BM25SearchRequest(SearchRequest):
                 "searchText": self._search_text
             }
         }
+        if self._synonyms is not None:
+            res["BM25SearchParams"]["synonyms"] = self._synonyms
+        if self._highlight is not None:
+            res["BM25SearchParams"]["highlight"] = self._highlight.to_dict()
 
         if self._limit is not None:
             res["limit"] = self._limit
 
         if self._filter is not None:
             res["filter"] = self._filter
+        if self._decay is not None:
+            res["decay"] = [item.to_dict() for item in self._decay]
 
         return res
 
@@ -652,7 +743,8 @@ class HybridSearchRequest(SearchRequest):
                  bm25_weight: float = 0.5,
                  limit: int = None,
                  filter: str = None,
-                 advanced_options: AdvancedOptions = None):
+                 advanced_options: AdvancedOptions = None,
+                 decay=None):
         """
         init
 
@@ -671,6 +763,7 @@ class HybridSearchRequest(SearchRequest):
         self._limit = limit
         self._filter = filter
         self._advanced_options = advanced_options
+        self._decay = decay
 
     def to_dict(self):
         """to_dict"""
@@ -689,6 +782,8 @@ class HybridSearchRequest(SearchRequest):
             res["filter"] = self._filter
         if self._advanced_options is not None:
             res["advancedOptions"] = self._advanced_options.to_dict()
+        if self._decay is not None:
+            res["decay"] = [item.to_dict() for item in self._decay]
 
         return res
 
@@ -803,8 +898,6 @@ class Table:
             res["createTime"] = self.create_time
         if self.state is not None:
             res["state"] = self.state
-        if self._ttl > 0:
-            res["ttl"] = self._ttl
         return res
 
     def _merge_config(self, config):
@@ -873,7 +966,7 @@ class Table:
 
     def query(self, primary_key, partition_key=None, projections=None,
             retrieve_vector=False, read_consistency=ReadConsistency.EVENTUAL,
-            config=None):
+            vector_index_membership=None, config=None):
         """
         query
         """
@@ -890,6 +983,10 @@ class Table:
             body["projections"] = projections
         body["retrieveVector"] = retrieve_vector
         body["readConsistency"] = read_consistency
+        if vector_index_membership is not None:
+            if isinstance(vector_index_membership, str):
+                vector_index_membership = {"indexName": vector_index_membership}
+            body["vectorIndexMembership"] = vector_index_membership
         json_body = orjson.dumps(body)
 
         config = self._merge_config(config)
@@ -1049,7 +1146,7 @@ class Table:
                                       config=config)
 
     def search_iterator(self, *,
-                        request: VectorSearchRequest,
+                        request: SearchRequest,
                         batch_size: int,
                         total_size: int,
                         partition_key: Dict[str, Any] = None,
@@ -1060,7 +1157,7 @@ class Table:
         number of rows in the result is too large to be retrieved in a single
         search request.
 
-        Only TopK search and Multi-Vector search is supported.
+        Supports TopK, Multi-Vector, BM25 and Hybrid search.
 
         Arguments:
         - `batch_size`: Number of results returned by `iterator.next()`.
@@ -1188,16 +1285,16 @@ class Table:
         body["retrieveVector"] = retrieve_vector
         body["readConsistency"] = read_consistency
         json_body = orjson.dumps(body)
-        
+
         config = self._merge_config(config)
         uri = utils.append_uri(client.URL_PREFIX, client.URL_VERSION, 'row')
-        
+
         return self.conn.send_request(http_methods.POST,
                 path=uri,
                 body=json_body,
                 params={bytes(RequestType.BATCH_SEARCH): b''},
                 config=config)
-    
+
     def add_fields(self, schema, config=None):
         """
         add_fields
@@ -1234,8 +1331,11 @@ class Table:
 
         for index in indexes:
             if isinstance(index, VectorIndex) or \
-               isinstance(index, SecondaryIndex) or \
-               isinstance(index, FilteringIndex):
+                isinstance(index, SecondaryIndex) or \
+                isinstance(index, FilteringIndex) or \
+                isinstance(index, InvertedIndex) or \
+                isinstance(index, PersistentBitmapIndex) or \
+                isinstance(index, PersistentAggregatedBitmapIndex):
                 body["indexes"].append(index.to_dict())
             else:
                 raise ClientError("not supported index type")
@@ -1374,10 +1474,39 @@ class Table:
                 auto_build=index["autoBuild"],
                 auto_build_index_policy=auto_build_index_policy,
                 state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.IVFRABITQ.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.IVFRABITQ,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                params=IVFRABITQParams(nlist=index["params"]["nlist"]),
+                auto_build=index["autoBuild"],
+                auto_build_index_policy=auto_build_index_policy,
+                state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.IVFPQ.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.IVFPQ,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                params=IVFPQParams(nlist=index["params"]["nlist"], NSQ=index["params"]["NSQ"]),
+                auto_build=index["autoBuild"],
+                auto_build_index_policy=auto_build_index_policy,
+                state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.FLAT.value:
             return VectorIndex(
                 index_name=index["indexName"],
                 index_type=IndexType.FLAT,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                auto_build=index["autoBuild"],
+                auto_build_index_policy=auto_build_index_policy,
+                state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.SPARSE_OPTIMIZED_FLAT.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.SPARSE_OPTIMIZED_FLAT,
                 field=index["field"],
                 metric_type=getattr(MetricType, index["metricType"], None),
                 auto_build=index["autoBuild"],
@@ -1417,6 +1546,17 @@ class Table:
                 auto_build=index["autoBuild"],
                 auto_build_index_policy=auto_build_index_policy,
                 state=getattr(IndexState, index["state"], None))
+        elif index["indexType"] == IndexType.HNSWRABITQ.value:
+            return VectorIndex(
+                index_name=index["indexName"],
+                index_type=IndexType.HNSWRABITQ,
+                field=index["field"],
+                metric_type=getattr(MetricType, index["metricType"], None),
+                params=HNSWRABITQParams(m=index["params"]["M"],
+                    efconstruction=index["params"]["efConstruction"]),
+                auto_build=index["autoBuild"],
+                auto_build_index_policy=auto_build_index_policy,
+                state=getattr(IndexState, index["state"], None))
         elif index["indexType"] == IndexType.SECONDARY_INDEX.value:
             return SecondaryIndex(
                 index_name=index["indexName"],
@@ -1425,15 +1565,25 @@ class Table:
             return FilteringIndex.from_dict_list(
                 index_name=index["indexName"],
                 fields=index["fields"])
+        elif index["indexType"] == IndexType.PERSISTENT_BITMAP_INDEX.value:
+            return PersistentBitmapIndex(
+                index_name=index["indexName"],
+                field=index["fields"][0]["field"])
+        elif index["indexType"] == IndexType.PERSISTENT_AGGREGATED_BITMAP_INDEX.value:
+            return PersistentAggregatedBitmapIndex(
+                index_name=index["indexName"],
+                field=index["fields"][0]["field"],
+                fanout_bits=index.get("fanoutBits"),
+                max_depth=index.get("maxDepth"))
         elif index["indexType"] == IndexType.INVERTED_INDEX.value:
             return InvertedIndex(
                 index_name=index["indexName"],
                 fields=index["fields"],
                 params=InvertedIndexParams(analyzer=getattr(InvertedIndexAnalyzer, index["params"]["analyzer"], None),
-                                    parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None)))
+                                    parse_mode=getattr(InvertedIndexParseMode, index["params"]["parseMode"], None)),
+                state=getattr(IndexState, index.get("state"), None))
         else:
             raise ClientError("not supported index type:%s" % (index["indexType"]))
-
 
     def stats(self, config=None):
         """show table stats"""
@@ -1494,7 +1644,6 @@ class Table:
                 params={b'unalias': b''},
                 config=config)
 
-
 class Row:
     """
     row, the object for document insert, query and search, the parameter depends on
@@ -1523,7 +1672,7 @@ class SearchIterator:
     def __init__(
             self, *,
             table: Table,
-            request: VectorSearchRequest,
+            request: SearchRequest,
             batch_size: int,
             total_size: int,
             partition_key: Dict[str, Any] = None,
@@ -1535,9 +1684,11 @@ class SearchIterator:
         Instead, call the `search_iterator` method in `pymochow.model.table.Table`.
         """
         if not isinstance(request, (VectorTopkSearchRequest,
-                                    MultiVectorSearchRequest)):
+                                    MultiVectorSearchRequest,
+                                    BM25SearchRequest,
+                                    HybridSearchRequest)):
             raise ValueError(
-                "SearchIterator only supports VectorTopkSearchRequest and MultiVectorSearchRequest")
+                "SearchIterator only supports vector TopK, multi-vector, BM25 and Hybrid requests")
 
         if total_size < batch_size:
             raise ValueError("'total_size' should not be less than 'batch_size'")
