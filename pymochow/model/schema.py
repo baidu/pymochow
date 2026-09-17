@@ -710,12 +710,45 @@ class InvertedIndex(IndexField):
         return res
 
 
+class EmbeddingParams:
+    """Embedding binding between an input text field and an output vector field."""
+
+    def __init__(self, input_field_name, output_field_name, model_name):
+        self._input_field_name = input_field_name
+        self._output_field_name = output_field_name
+        self._model_name = model_name
+
+    @property
+    def input_field_name(self):
+        """Return the input text field name."""
+        return self._input_field_name
+
+    @property
+    def output_field_name(self):
+        """Return the output vector field name."""
+        return self._output_field_name
+
+    @property
+    def model_name(self):
+        """Return the embedding model name."""
+        return self._model_name
+
+    def to_dict(self):
+        """Convert the embedding params to a dict representation."""
+        return {
+            "inputFieldName": self.input_field_name,
+            "outputFieldName": self.output_field_name,
+            "modelName": self.model_name,
+        }
+
+
 class Schema:
     """schema"""
 
-    def __init__(self, fields, indexes=None):
+    def __init__(self, fields, indexes=None, embedding_params=None):
         self._fields = fields
         self._indexes = indexes
+        self._embedding_params = embedding_params
 
     @property
     def indexes(self):
@@ -726,6 +759,11 @@ class Schema:
     def fields(self):
         """fields"""
         return self._fields
+
+    @property
+    def embedding_params(self):
+        """embedding bindings"""
+        return self._embedding_params
 
     def to_dict(self):
         """to dict"""
@@ -738,6 +776,10 @@ class Schema:
             res["indexes"] = []
             for index in self.indexes:
                 res["indexes"].append(index.to_dict())
+        if self.embedding_params is not None:
+            res["embeddingParams"] = []
+            for params in self.embedding_params:
+                res["embeddingParams"].append(params.to_dict())
         return res
 
 

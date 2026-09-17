@@ -40,6 +40,7 @@ from pymochow.model.schema import (
     IVFRABITQParams,
     HNSWRABITQParams,
     IVFPQParams,
+    EmbeddingParams,
     AutoBuildTool,
     InvertedIndex,
     InvertedIndexParams,
@@ -491,7 +492,17 @@ class Database:
             else:
                 _logger.debug("skip unsupported index type:%s" % (index["indexType"]))
 
-        schema = Schema(fields=fields, indexes=indexes)
+        embedding_params = [
+            EmbeddingParams(
+                input_field_name=params["inputFieldName"],
+                output_field_name=params["outputFieldName"],
+                model_name=params["modelName"])
+            for params in table["schema"].get("embeddingParams", [])
+        ]
+        schema = Schema(
+            fields=fields,
+            indexes=indexes,
+            embedding_params=embedding_params or None)
         return Table(self, table_name, table["replication"], partition, schema,
                 enable_dynamic_field=(
                     table["enableDynamicField"]

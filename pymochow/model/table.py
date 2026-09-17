@@ -1746,6 +1746,54 @@ class SearchIterator:
         pass
 
 
+class TextAnnSearch:
+    """ANN search using one text input and the table embedding binding."""
+
+    def __init__(self, text_field, text, params, vector_field=None, filter=None):
+        self._text_field = text_field
+        self._text = text
+        self._params = params
+        self._vector_field = vector_field
+        self._filter = filter
+
+    def to_dict(self):
+        """Convert this search request to a dict representation."""
+        res = {
+            'textField': self._text_field,
+            'text': self._text,
+            'params': self._params.to_dict()
+        }
+        if self._vector_field is not None:
+            res['vectorField'] = self._vector_field
+        if self._filter is not None:
+            res['filter'] = self._filter
+        return res
+
+
+class BatchTextAnnSearch:
+    """ANN search using multiple text inputs and the table embedding binding."""
+
+    def __init__(self, text_field, texts, params, vector_field=None, filter=None):
+        self._text_field = text_field
+        self._texts = texts
+        self._params = params
+        self._vector_field = vector_field
+        self._filter = filter
+
+    def to_dict(self):
+        """Convert this batch search request to a dict representation."""
+        res = {
+            'textField': self._text_field,
+            'texts': self._texts,
+            'params': self._params.to_dict()
+        }
+        if self._vector_field is not None:
+            res['vectorField'] = self._vector_field
+        if self._filter is not None:
+            res['filter'] = self._filter
+        return res
+
+
 @utils.deprecated("Use VectorSearchConfig instead")
 class HNSWSearchParams:
     "hnsw search params"
